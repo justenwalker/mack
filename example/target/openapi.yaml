@@ -1,0 +1,123 @@
+openapi: 3.0.2
+info:
+  title: Auth Service
+  description: Auth Service authorizes users and discharges macaroons
+  version: 1.0.0
+servers:
+  - url: https://auth.localhost.direct
+    description: Authorization Server
+paths:
+  /{org}/{app}/do:
+    parameters:
+      - name: org
+        in: path
+        schema:
+          type: string
+      - name: app
+        in: path
+        schema:
+          type: string
+    post:
+      security:
+        - {}
+      requestBody:
+        $ref: "#/components/requestBodies/OperationRequest"
+      responses:
+        200:
+          $ref: "#/components/responses/OperationResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+  /macaroon-request:
+    parameters:
+      - name: org
+        in: query
+        schema:
+          type: string
+      - name: app
+        in: query
+        schema:
+          type: string
+    get:
+      security:
+        - {}
+      responses:
+        200:
+          $ref: "#/components/responses/MacaroonResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+security:
+  - bearerHTTPAuthentication: []
+components:
+  securitySchemes:
+    bearerHTTPAuthentication:
+      description: "API Key Authorization"
+      type: http
+      scheme: Bearer
+  responses:
+    OperationResponse:
+      description: "Operation Result"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperationResponseBody"
+    ErrorResponse:
+      description: "Error response"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponseBody"
+    MacaroonResponse:
+      description: "A discharged macaroon"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MacaroonResponseBody"
+  requestBodies:
+    OperationRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperationRequestBody"
+  schemas:
+    MacaroonResponseBody:
+      type: object
+      required:
+        - macaroon
+        - expires_in
+      properties:
+        macaroon:
+          type: string
+          description: "A macaroon discharging the provided caveat ID"
+        expires_in:
+          type: integer
+          format: int64
+          description: "number of seconds for which this macaroon is valid after this response was generated"
+    ErrorResponseBody:
+      type: object
+      required:
+        - code
+        - error
+      properties:
+        code:
+          type: integer
+          description: "error code"
+        error:
+          type: string
+          description: "error message"
+    OperationRequestBody:
+      type: object
+      required:
+        - operation
+      properties:
+        operation:
+          type: string
+          description: "operation id"
+        arguments:
+          type: array
+          description: "argument list"
+          items:
+            type: string
+            description: "argument"
+    OperationResponseBody:
+      type: object

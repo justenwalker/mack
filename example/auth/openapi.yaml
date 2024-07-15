@@ -1,0 +1,199 @@
+openapi: 3.0.2
+info:
+  title: Auth Service
+  description: Auth Service authorizes users and discharges macaroons
+  version: 1.0.0
+servers:
+  - url: https://auth.localhost.direct
+    description: Authorization Server
+paths:
+  /login:
+    post:
+      security:
+        - {}
+      requestBody:
+        $ref: "#/components/requestBodies/LoginRequest"
+      responses:
+        200:
+          $ref: "#/components/responses/LoginResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+  /validate-token:
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/ValidateTokenRequest"
+      responses:
+        200:
+          $ref: "#/components/responses/ValidateTokenResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+  /identities:
+    get:
+      security:
+        - {}
+      responses:
+        default:
+          $ref: "#/components/responses/IdentitiesResponse"
+  /discharge:
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/DischargeMacaroonRequest"
+      responses:
+        200:
+          $ref: "#/components/responses/DischargeMacaroonResponse"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+security:
+  - bearerHTTPAuthentication: []
+components:
+  securitySchemes:
+    bearerHTTPAuthentication:
+      description: "API Key Authorization"
+      type: http
+      scheme: Bearer
+  responses:
+    ErrorResponse:
+      description: "Error response"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponseBody"
+    LoginResponse:
+      description: "Access credentials to be used with the authenticated API endpoints"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LoginResponseBody"
+    ValidateTokenResponse:
+      description: "Details about the token after validation"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidateTokenResponseBody"
+    IdentitiesResponse:
+      description: "Contains a list of identities to which tickets can be encrypted"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/IdentitiesResponseBody"
+    DischargeMacaroonResponse:
+      description: "A discharged macaroon"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DischargeMacaroonResponseBody"
+  requestBodies:
+    LoginRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LoginRequestBody"
+    ValidateTokenRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidateTokenRequestBody"
+    DischargeMacaroonRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DischargeMacaroonRequestBody"
+  schemas:
+    LoginRequestBody:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    LoginResponseBody:
+      type: object
+      required:
+        - access_token
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: "The access token authorizing the user"
+        expires_in:
+          type: integer
+          format: int64
+          description: "number of seconds for which this macaroon is valid after this response was generated"
+    ValidateTokenRequestBody:
+      type: object
+      required:
+        - access_token
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: "The access token authorizing the user"
+    ValidateTokenResponseBody:
+      type: object
+      required:
+        - username
+        - expires
+      properties:
+        username:
+          type: string
+        expires:
+          type: string
+          format: date-time
+    IdentitiesResponseBody:
+      type: array
+      items:
+        type: object
+        required:
+          - key_type
+          - key_id
+          - public_key
+        properties:
+          key_type:
+            type: string
+            description: "Key Type"
+          key_id:
+            type: string
+            description: "Key Identifier"
+          public_key:
+            type: string
+            description: "Base-64 Encoded Public Key Data"
+    DischargeMacaroonRequestBody:
+      type: object
+      required:
+        - caveat_id
+      properties:
+        caveat_id:
+          type: string
+          description: "The caveat ID to be discharged"
+    DischargeMacaroonResponseBody:
+      type: object
+      required:
+        - macaroon
+        - expires_in
+      properties:
+        macaroon:
+          type: string
+          description: "A macaroon discharging the provided caveat ID"
+        expires_in:
+          type: integer
+          format: int64
+          description: "number of seconds for which this macaroon is valid after this response was generated"
+    ErrorResponseBody:
+      type: object
+      required:
+        - code
+        - error
+      properties:
+        code:
+          type: integer
+          description: "error code"
+        error:
+          type: string
+          description: "error message"
