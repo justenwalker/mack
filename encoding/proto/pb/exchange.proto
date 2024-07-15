@@ -1,0 +1,23 @@
+syntax = "proto3";
+package mack.macaroon.v1;
+option go_package = "github.com/justenwalker/mack/encoding/proto/pb";
+
+// Ticket contains the caveat information to be discharged by the third-party.
+message Ticket {
+  // Key is the encryption key cK of the discharge caveat.
+  bytes key = 1;
+  // Predicate is the value that was used to seed the third-party caveat that should be validated before minting a discharge Macaroon.
+  bytes predicate = 2;
+}
+
+// EncryptedMessage is a message wrapper that encrypts a DischargeRequest sent to the third-party using their PublicKey.
+// The third-party has the corresponding private key that can decrypt it to retrieve the DischargeRequest;
+// and mint a Discharge Macaroon after validating the predicate.
+message EncryptedMessage {
+  // Type identifies how the message was encrypted.
+  string type = 1;
+  // KeyId is a hint about which public key was used to encrypt the payload.
+  string key_id = 2;
+  // Payload is the encrypted payload
+  bytes payload = 3;
+}

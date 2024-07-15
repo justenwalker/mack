@@ -1,0 +1,6 @@
+package: targetsvc
+generate:
+  client: true
+  std-http-server: true
+  models: true
+output: openapi.gen.go

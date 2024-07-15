@@ -1,0 +1,20 @@
+syntax = "proto3";
+package mack.macaroon.v1;
+option go_package = "github.com/justenwalker/mack/encoding/proto/pb";
+
+message Stack {
+  repeated Macaroon macaroons = 1;
+}
+
+message Macaroon {
+  string loc = 1;
+  bytes id = 2;
+  repeated Caveat caveats = 3;
+  bytes sig = 4;
+}
+
+message Caveat {
+  bytes cid = 1;
+  bytes vid = 2;
+  string cl = 3;
+}

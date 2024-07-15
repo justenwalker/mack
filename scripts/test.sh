@@ -1,0 +1,3 @@
+#!/bin/bash
+
+go test -tags test_random -coverprofile=cover.out ./...
