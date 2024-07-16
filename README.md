@@ -1,5 +1,32 @@
 # Mack - A Go library for interacting with Macaroons
 
+## What is this library
+
+Currently,
+
+### It is
+
+1. Something I wrote up in my spare time to understand Macaroons a bit better.
+2. A learning exercise for me to explore library design ideas.
+3. A hobby/side project for me to obsess over.
+
+### It is **not**:
+
+1. A production-grade library you should bet your entire business and information security on.
+2. An official or reference implementation of Macaroons. 
+3. Able to make Margaritas.
+
+that said, I'd welcome some advice, comments, constructive feedback about the library's, it's ergonomics, or rough edges. I'm also not a cryptographer, so if there are any flaws in the implementation I'd like to know about them.
+
+### Why?
+
+The Macaroons paper specifies how to create this chained list of caveats, but doesn't have any opinions. Unlike JWT, there are really no standards what caveats are, or how to validate them. This library implements the base methods for 
+constructing and verifying macaroons and exposes interfaces for implementing the areas of the spec that are open to 
+interpretation, while also providing some opinionated implementations of these interfaces to make it actually useful. 
+
+An example implementation of a pair of web-apis using this library can be found in the [example](./example) directory.
+This covers constructing a Macaroon, discharging, validating, and clearing caveats in a practical setting.
+
 ## What is a Macaroon?
 
 [See Paper](https://www.ndss-symposium.org/wp-content/uploads/2017/09/04_3_1.pdf)
@@ -37,16 +64,6 @@ NOTE: some conventional JWT claims can be interpreted as caveats:
 - `aud`: token is valid for a specific audience, preventing token from `service-a` from being used on `service-b`
 - `nbf`: token is not valid before this unix timestamp
 - `exp`: token is no longer valid after this date
-
-## What is this library
-
-The Macaroons paper specifies how to create this chained list of caveats, but doesn't have any opinions. Unlike JWT, there
-are really no standards what caveats are, or how to validate them. This library implements the base methods for 
-constructing and verifying macaroons and exposes interfaces for implementing the areas of the spec that are open to 
-interpretation, while also providing some opinionated implementations of these interfaces to make it actually useful. 
-
-An example implementation of a pair of web-apis using this library can be found in the [example](./example) directory.
-This covers constructing a Macaroon, discharging, validating, and clearing caveats in a practical setting.
 
 ## Packages
 
