@@ -84,7 +84,7 @@ First, you must create a `macaroon.Scheme`.
 You can create a new scheme with:
 
 ```go
-scheme := macaroon.NewSceheme(macaroon.SchemeConfig{
+scheme := macaroon.NewScheme(macaroon.SchemeConfig{
 	HMACScheme:           hms,
 	EncryptionScheme:     es,
 	BindForRequestScheme: b4rs,
