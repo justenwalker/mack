@@ -97,6 +97,9 @@ func (dec *V2JDecoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeMacaroon: failed to unmarshal json: %w", err)
 	}
+	if js.Version != 2 {
+		return fmt.Errorf("v2j.DecodeMacaroon: invalid version: %d", js.Version)
+	}
 	return v2jMacaroonFromJSON(&js, m)
 }
 
@@ -108,7 +111,12 @@ func (dec *V2JDecoder) DecodeStack(stack *macaroon.Stack) error {
 	}
 	s := make(macaroon.Stack, len(jsonstack))
 	for i := range jsonstack {
-		return v2jMacaroonFromJSON(&jsonstack[i], &s[i])
+		if jsonstack[i].Version != 2 {
+			return fmt.Errorf("v2j.DecodeStack: macaroon[%d]: invalid version: %d", i, jsonstack[i].Version)
+		}
+		if err = v2jMacaroonFromJSON(&jsonstack[i], &s[i]); err != nil {
+			return fmt.Errorf("v2j.DecodeStack: macaroon[%d]: decode failed: %w", i, err)
+		}
 	}
 	*stack = s
 	return nil
