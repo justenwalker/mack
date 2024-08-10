@@ -2,8 +2,10 @@ package libmacaroon
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
+	"unsafe"
 )
 
 // InputDecoder decodes bytes from input data.
@@ -85,11 +87,18 @@ func (Hex) EncodedLength(n int) int {
 
 type byteWriter struct {
 	io.Writer
+	buf [8]byte
 }
 
 func (w *byteWriter) WriteByte(b byte) error {
-	_, err := w.Write([]byte{b})
+	w.buf[0] = b
+	_, err := w.Write(w.buf[:1])
 	return err
+}
+
+func (w *byteWriter) WriteVarint(i uint64) (int, error) {
+	n := binary.PutUvarint(w.buf[:], i)
+	return w.Write(w.buf[:n])
 }
 
 func (w *byteWriter) Write(b []byte) (int, error) {
@@ -97,18 +106,23 @@ func (w *byteWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+func (w *byteWriter) WriteString(str string) (int, error) {
+	n, err := w.Writer.Write(unsafe.Slice(unsafe.StringData(str), len(str)))
+	return n, err
+}
+
 type byteReader struct {
 	totalRead int64
+	buf       [8]byte
 	io.Reader
 }
 
 func (br *byteReader) ReadByte() (byte, error) {
-	var b [1]byte
-	_, err := br.Read(b[:])
+	_, err := br.Read(br.buf[:1])
 	if err != nil {
 		return 0, err
 	}
-	return b[0], nil
+	return br.buf[0], nil
 }
 
 func (br *byteReader) Read(p []byte) (int, error) {

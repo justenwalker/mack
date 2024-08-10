@@ -46,7 +46,7 @@ func (m *Macaroon) IsZero() bool {
 
 // Location returns the string representation of the Location of the Macaroon.
 func (m *Macaroon) Location() string {
-	return string(m.data.loc())
+	return m.data.loc()
 }
 
 // ID returns the ID of the macaroon.

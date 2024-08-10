@@ -2,7 +2,7 @@
 //
 // HMACScheme       : HMAC-SHA256
 // EncryptionScheme : XSalsa20
-// BindForRequest   : HMAC(M.sig, sig)
+// BindForRequest   : HMAC(Macaroon.sig, sig)
 package sensible
 
 import (
