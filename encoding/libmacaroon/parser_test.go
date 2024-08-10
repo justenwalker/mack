@@ -17,6 +17,61 @@ import (
 	"github.com/justenwalker/mack/sensible"
 )
 
+func TestParser_DecodeMacaroon(t *testing.T) {
+	type parseTest struct {
+		name string
+		b64  string
+	}
+	p := libmacaroon.Parser{}
+	tests := []struct {
+		name      string
+		encodings []parseTest
+	}{
+		{
+			name: "serialization_1",
+			encodings: []parseTest{
+				{name: "v1", b64: "TURBeU1XeHZZMkYwYVc5dUlHaDBkSEE2THk5bGVHRnRjR3hsTG05eVp5OEtNREF4Tldsa1pXNTBhV1pwWlhJZ2EyVjVhV1FLTURBeVpuTnBaMjVoZEhWeVpTQjgzdWVTVVJ4Ynh2VW9TRmdGMy1teVRuaGVLT0twa3dINTF4SEdDZU9POXdv"},
+				{name: "v2", b64: "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAAYgfN7nklEcW8b1KEhYBd_psk54XijiqZMB-dcRxgnjjvc="},
+				{name: "v2j", b64: "eyJ2IjoyLCJsIjoiaHR0cDovL2V4YW1wbGUub3JnLyIsImkiOiJrZXlpZCIsImMiOltdLCJzNjQiOiJmTjdua2xFY1c4YjFLRWhZQmRfcHNrNTRYaWppcVpNQi1kY1J4Z25qanZjIn0"},
+			},
+		},
+		{
+			name: "serialization_2",
+			encodings: []parseTest{
+				{name: "v1", b64: "TURBeU1XeHZZMkYwYVc5dUlHaDBkSEE2THk5bGVHRnRjR3hsTG05eVp5OEtNREF4Tldsa1pXNTBhV1pwWlhJZ2EyVjVhV1FLTURBeFpHTnBaQ0JoWTJOdmRXNTBJRDBnTXpjek5Ua3lPRFUxT1Fvd01ESm1jMmxuYm1GMGRYSmxJUFZJQl9iY2J0LUl2dzl6QnJPQ0pXS2pZbE05djNNNXVtRjJYYVM5SloySENn"},
+				{name: "v2", b64: "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQAABiD1SAf23G7fiL8PcwazgiVio2JTPb9zObphdl2kvSWdhw=="},
+				{name: "v2j", b64: "eyJ2IjoyLCJsIjoiaHR0cDovL2V4YW1wbGUub3JnLyIsImkiOiJrZXlpZCIsImMiOlt7ImkiOiJhY2NvdW50ID0gMzczNTkyODU1OSJ9XSwiczY0IjoiOVVnSDl0eHUzNGlfRDNNR3M0SWxZcU5pVXoyX2N6bTZZWFpkcEwwbG5ZYyJ9"},
+			},
+		},
+		{
+			name: "serialization_3",
+			encodings: []parseTest{
+				{name: "v1", b64: "TURBeU1XeHZZMkYwYVc5dUlHaDBkSEE2THk5bGVHRnRjR3hsTG05eVp5OEtNREF4Tldsa1pXNTBhV1pwWlhJZ2EyVjVhV1FLTURBeFpHTnBaQ0JoWTJOdmRXNTBJRDBnTXpjek5Ua3lPRFUxT1Fvd01ERTFZMmxrSUhWelpYSWdQU0JoYkdsalpRb3dNREptYzJsbmJtRjBkWEpsSUV2cFo4MGVvTWF5YTY5cVNwVHVtd1d4V0liYUM2aGVqRUtwUEkwT0VsNzhDZw=="},
+				{name: "v2", b64: "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A=="},
+				{name: "v2j", b64: "eyJ2IjoyLCJsIjoiaHR0cDovL2V4YW1wbGUub3JnLyIsImkiOiJrZXlpZCIsImMiOlt7ImkiOiJhY2NvdW50ID0gMzczNTkyODU1OSJ9LHsiaSI6InVzZXIgPSBhbGljZSJ9XSwiczY0IjoiUy1sbnpSNmd4ckpycjJwS2xPNmJCYkZZaHRvTHFGNk1RcWs4alE0U1h2dyJ9"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			macaroons := make([]mack.Macaroon, len(tt.encodings))
+			serialized := make([][]byte, len(tt.encodings))
+			for i := range tt.encodings {
+				t.Run(tt.encodings[i].name, func(t *testing.T) {
+					var err error
+					serialized[i], err = libmacaroon.Base64DecodeLoose(tt.encodings[i].b64)
+					if err != nil {
+						t.Fatalf("encoding[%d]: base64 decoding failed: %v", i, err)
+					}
+					if err = p.DecodeMacaroon(serialized[i], &macaroons[i]); err != nil {
+						t.Fatalf("encoding[%d]: failed to decode: %v", i, err)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestSerialization(t *testing.T) {
 	type encoderDecoder interface {
 		encoding.MacaroonEncoder

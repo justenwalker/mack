@@ -55,7 +55,7 @@ func (v V2) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	if v.OutputEncoder != nil {
 		writer = v.OutputEncoder.EncodeOutput(writer)
 	}
-	enc := NewV2Encoder(writer)
+	enc := V2Encoder{writer: &byteWriter{Writer: writer}}
 	if err := enc.EncodeMacaroon(m); err != nil {
 		return nil, err
 	}
@@ -119,11 +119,11 @@ func (enc *V2Encoder) EncodeMacaroon(m *mack.Macaroon) error {
 	if err := enc.writer.WriteByte(v2VersionByte); err != nil {
 		return err
 	}
-	if m.Location() != "" {
+	if loc := m.Location(); loc != "" {
 		if err := enc.writer.WriteByte(byte(v2FieldTypeLocation)); err != nil {
 			return err
 		}
-		if err := enc.writeFieldValue([]byte(m.Location())); err != nil {
+		if err := enc.writeFieldString(loc); err != nil {
 			return err
 		}
 	}
@@ -168,7 +168,7 @@ func (enc *V2Encoder) encodeCaveat(c *mack.Caveat) error {
 		if err := enc.writer.WriteByte(byte(v2FieldTypeLocation)); err != nil {
 			return err
 		}
-		if err := enc.writeFieldValue([]byte(c.Location())); err != nil {
+		if err := enc.writeFieldString(c.Location()); err != nil {
 			return err
 		}
 	}
@@ -390,12 +390,20 @@ func (dec *V2Decoder) readField() (v2FieldType, []byte, error) {
 }
 
 func (enc *V2Encoder) writeFieldValue(data []byte) error {
-	var varint [8]byte
-	n := binary.PutUvarint(varint[:], uint64(len(data)))
-	if _, err := enc.writer.Write(varint[:n]); err != nil {
+	if _, err := enc.writer.WriteVarint(uint64(len(data))); err != nil {
 		return err
 	}
 	if _, err := enc.writer.Write(data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (enc *V2Encoder) writeFieldString(str string) error {
+	if _, err := enc.writer.WriteVarint(uint64(len(str))); err != nil {
+		return err
+	}
+	if _, err := enc.writer.WriteString(str); err != nil {
 		return err
 	}
 	return nil

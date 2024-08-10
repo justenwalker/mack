@@ -94,6 +94,9 @@ func (dec *V2JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeMacaroon: failed to unmarshal json: %w", err)
 	}
+	if js.Version != 2 {
+		return fmt.Errorf("v2j.DecodeMacaroon: invalid version: %d", js.Version)
+	}
 	return v2jMacaroonFromJSON(&js, m)
 }
 
@@ -105,36 +108,31 @@ func (dec *V2JDecoder) DecodeStack(stack *mack.Stack) error {
 	}
 	s := make(mack.Stack, len(jsonstack))
 	for i := range jsonstack {
-		return v2jMacaroonFromJSON(&jsonstack[i], &s[i])
+		if jsonstack[i].Version != 2 {
+			return fmt.Errorf("v2j.DecodeStack: macaroon[%d]: invalid version: %d", i, jsonstack[i].Version)
+		}
+		if err = v2jMacaroonFromJSON(&jsonstack[i], &s[i]); err != nil {
+			return fmt.Errorf("v2j.DecodeStack: macaroon[%d]: decode failed: %w", i, err)
+		}
 	}
 	*stack = s
 	return nil
 }
 
 func v2jMacaroonToJSON(m *mack.Macaroon) v2jMacaroonJSON {
-	id, id64 := v2jJSONData(m.ID())
-	sig, sig64 := v2jJSONData(m.Signature())
-	cs := make([]v2jCaveatJSON, len(m.Caveats()))
+	js := v2jMacaroonJSON{
+		Version:  2,
+		Location: m.Location(),
+	}
+	v2jSetData(m.ID(), &js.ID, &js.IDB64)
+	v2jSetData(m.Signature(), &js.Signature, &js.SignatureB64)
+	js.Caveats = make([]v2jCaveatJSON, len(m.Caveats()))
 	for i, c := range m.Caveats() {
-		cid, cid64 := v2jJSONData(c.ID())
-		vid, vid64 := v2jJSONData(c.VID())
-		cs[i] = v2jCaveatJSON{
-			ID:              cid,
-			IDB64:           cid64,
-			Location:        c.Location(),
-			Verification:    vid,
-			VerificationB64: vid64,
-		}
+		v2jSetData(c.ID(), &js.Caveats[i].ID, &js.Caveats[i].IDB64)
+		v2jSetData(c.VID(), &js.Caveats[i].Verification, &js.Caveats[i].VerificationB64)
+		js.Caveats[i].Location = c.Location()
 	}
-	return v2jMacaroonJSON{
-		Version:      2,
-		ID:           id,
-		IDB64:        id64,
-		Location:     m.Location(),
-		Caveats:      cs,
-		Signature:    sig,
-		SignatureB64: sig64,
-	}
+	return js
 }
 
 func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *mack.Macaroon) error {
@@ -171,19 +169,19 @@ func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *mack.Macaroon) error {
 type v2jMacaroonJSON struct {
 	Version      v2jVersionJSON  `json:"v"`
 	Location     string          `json:"l,omitempty"`
-	ID           *string         `json:"i,omitempty"`
-	IDB64        *string         `json:"i64,omitempty"`
+	ID           string          `json:"i,omitempty"`
+	IDB64        string          `json:"i64,omitempty"`
 	Caveats      []v2jCaveatJSON `json:"c"`
-	Signature    *string         `json:"s,omitempty"`
-	SignatureB64 *string         `json:"s64,omitempty"`
+	Signature    string          `json:"s,omitempty"`
+	SignatureB64 string          `json:"s64,omitempty"`
 }
 
 type v2jCaveatJSON struct {
-	ID              *string `json:"i,omitempty"`
-	IDB64           *string `json:"i64,omitempty"`
-	Location        string  `json:"l,omitempty"`
-	Verification    *string `json:"v,omitempty"`
-	VerificationB64 *string `json:"v64,omitempty"`
+	ID              string `json:"i,omitempty"`
+	IDB64           string `json:"i64,omitempty"`
+	Location        string `json:"l,omitempty"`
+	Verification    string `json:"v,omitempty"`
+	VerificationB64 string `json:"v64,omitempty"`
 }
 
 type v2jVersionJSON int
@@ -212,6 +210,17 @@ func (j *v2jVersionJSON) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func v2jSetData(data []byte, sp *string, b64p *string) {
+	if len(data) == 0 {
+		return
+	}
+	if utf8.Valid(data) {
+		*sp = string(data)
+		return
+	}
+	*b64p = base64.RawURLEncoding.EncodeToString(data)
+}
+
 func v2jJSONData(data []byte) (str *string, b64 *string) {
 	if len(data) == 0 {
 		return nil, nil
@@ -224,15 +233,15 @@ func v2jJSONData(data []byte) (str *string, b64 *string) {
 	return nil, &b
 }
 
-func v2jJSONFieldData(str *string, b64 *string) ([]byte, error) {
-	if str != nil && b64 != nil {
+func v2jJSONFieldData(str string, b64 string) ([]byte, error) {
+	if str != "" && b64 != "" {
 		return nil, errors.New("x and x64 fields are mutually exclusive")
 	}
-	if str == nil && b64 == nil {
+	if str == "" && b64 == "" {
 		return nil, nil
 	}
-	if str != nil {
-		return []byte(*str), nil
+	if str != "" {
+		return []byte(str), nil
 	}
-	return Base64DecodeLoose(*b64)
+	return Base64DecodeLoose(b64)
 }

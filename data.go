@@ -127,8 +127,8 @@ func (m *macaroonData) bytes() []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(m)), m.size())
 }
 
-func (m *macaroonData) loc() []byte {
-	return unsafe.Slice(&m.data[0], m.locSize)
+func (m *macaroonData) loc() string {
+	return unsafe.String(&m.data[0], m.locSize)
 }
 
 func (m *macaroonData) id() []byte {
