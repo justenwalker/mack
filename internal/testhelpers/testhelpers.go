@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/justenwalker/mack/macaroon"
+	macaroon "github.com/justenwalker/mack"
 )
-
-//go:generate go run go.uber.org/mock/mockgen -source ../../macaroon/verify.go -destination mocks.go -typed -package testhelpers
 
 type Fixture struct {
 	Scheme    *macaroon.Scheme

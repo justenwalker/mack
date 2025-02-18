@@ -10,14 +10,11 @@ import (
 	"io"
 	"unicode/utf8"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
-	"github.com/justenwalker/mack/macaroon"
 )
 
-var (
-	_ encoding.MacaroonEncoder = V1J{}
-	_ encoding.MacaroonDecoder = V1J{}
-)
+var _ encoding.EncoderDecoder = V1J{}
 
 type V1J struct{}
 
@@ -26,21 +23,21 @@ func (V1J) String() string {
 }
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v1 json format.
-func (V1J) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
+func (V1J) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
 	br := bytes.NewReader(bs)
 	dec := NewV1JDecoder(br)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a macaroon stack from v1 json format.
-func (V1J) DecodeStack(bs []byte, stack *macaroon.Stack) error {
+func (V1J) DecodeStack(bs []byte, stack *mack.Stack) error {
 	br := bytes.NewReader(bs)
 	dec := NewV1JDecoder(br)
 	return dec.DecodeStack(stack)
 }
 
 // EncodeMacaroon encodes a macaroon into libmacaroon v1 json format.
-func (V1J) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
+func (V1J) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := NewV1JEncoder(&buf)
 	if err := enc.EncodeMacaroon(m); err != nil {
@@ -50,7 +47,7 @@ func (V1J) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
 }
 
 // EncodeStack encodes a stack of macaroons into libmacaroon v1 json format.
-func (V1J) EncodeStack(stack macaroon.Stack) ([]byte, error) {
+func (V1J) EncodeStack(stack mack.Stack) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := NewV1JEncoder(&buf)
 	if err := enc.EncodeStack(stack); err != nil {
@@ -67,7 +64,7 @@ func NewV1JEncoder(w io.Writer) *V1JEncoder {
 	return &V1JEncoder{encoder: json.NewEncoder(w)}
 }
 
-func (enc *V1JEncoder) EncodeMacaroon(m *macaroon.Macaroon) error {
+func (enc *V1JEncoder) EncodeMacaroon(m *mack.Macaroon) error {
 	js, err := v1jMacaroonToJSON(m)
 	if err != nil {
 		return err
@@ -75,7 +72,7 @@ func (enc *V1JEncoder) EncodeMacaroon(m *macaroon.Macaroon) error {
 	return enc.encoder.Encode(js)
 }
 
-func (enc *V1JEncoder) EncodeStack(stack macaroon.Stack) error {
+func (enc *V1JEncoder) EncodeStack(stack mack.Stack) error {
 	jsonStack := make([]v1jMacaroonJSON, len(stack))
 	for i := range stack {
 		var err error
@@ -95,7 +92,7 @@ func NewV1JDecoder(r io.Reader) *V1JDecoder {
 	return &V1JDecoder{decoder: json.NewDecoder(r)}
 }
 
-func (dec *V1JDecoder) DecodeMacaroon(m *macaroon.Macaroon) error {
+func (dec *V1JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 	var js v1jMacaroonJSON
 	if err := dec.decoder.Decode(&js); err != nil {
 		return fmt.Errorf("v1j.DecodeMacaroon: failed to unmarshal json: %w", err)
@@ -106,13 +103,13 @@ func (dec *V1JDecoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	return nil
 }
 
-func (dec *V1JDecoder) DecodeStack(stack *macaroon.Stack) error {
+func (dec *V1JDecoder) DecodeStack(stack *mack.Stack) error {
 	var jsonstack []v1jMacaroonJSON
 	err := dec.decoder.Decode(&jsonstack)
 	if err != nil {
 		return fmt.Errorf("v1j.DecodeStack: failed to unmarshal json: %w", err)
 	}
-	s := make(macaroon.Stack, len(jsonstack))
+	s := make(mack.Stack, len(jsonstack))
 	for i := range jsonstack {
 		return v1jMacaroonFromJSON(&jsonstack[i], &s[i])
 	}
@@ -120,7 +117,7 @@ func (dec *V1JDecoder) DecodeStack(stack *macaroon.Stack) error {
 	return nil
 }
 
-func v1jMacaroonToJSON(m *macaroon.Macaroon) (v1jMacaroonJSON, error) {
+func v1jMacaroonToJSON(m *mack.Macaroon) (v1jMacaroonJSON, error) {
 	if !utf8.Valid(m.ID()) {
 		return v1jMacaroonJSON{}, errors.New("v1j.EncodeMacaroon: macaroon id is not valid UTF-8")
 	}
@@ -144,28 +141,28 @@ func v1jMacaroonToJSON(m *macaroon.Macaroon) (v1jMacaroonJSON, error) {
 	return js, nil
 }
 
-func v1jMacaroonFromJSON(js *v1jMacaroonJSON, m *macaroon.Macaroon) error {
-	var raw macaroon.Raw
+func v1jMacaroonFromJSON(js *v1jMacaroonJSON, m *mack.Macaroon) error {
+	var raw mack.Raw
 	var err error
 	raw.Location = js.Location
 	raw.ID = []byte(js.Identifier)
 	if raw.Signature, err = hex.DecodeString(js.Signature); err != nil {
 		return fmt.Errorf("v1j.DecodeMacaroon: failed to decode signature: %w", err)
 	}
-	raw.Caveats = make([]macaroon.RawCaveat, len(js.Caveats))
+	raw.Caveats = make([]mack.RawCaveat, len(js.Caveats))
 	for i, c := range js.Caveats {
 		var vid []byte
 		vid, err = Base64DecodeLoose(c.VID)
 		if err != nil {
 			return fmt.Errorf("v1j.DecodeMacaroon: failed to decode caveat 'vid': %w", err)
 		}
-		raw.Caveats[i] = macaroon.RawCaveat{
+		raw.Caveats[i] = mack.RawCaveat{
 			CID:      []byte(c.CID),
 			VID:      vid,
 			Location: c.Location,
 		}
 	}
-	*m = macaroon.NewFromRaw(raw)
+	*m = mack.NewFromRaw(raw)
 	return nil
 }
 
@@ -176,7 +173,7 @@ type v1jMacaroonJSON struct {
 	Signature  string          `json:"signature"` // hex-encoded
 }
 
-// caveatJSONV1 defines the V1 JSON format for caveats within a macaroon.
+// caveatJSONV1 defines the V1 JSON format for caveats within a mack.
 type v1jCaveatJSON struct {
 	CID      string `json:"cid"`
 	VID      string `json:"vid,omitempty"`

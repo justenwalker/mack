@@ -9,20 +9,20 @@ import (
 	"net/http"
 	"time"
 
+	"example/agecrypt"
+	"example/msgpack"
 	"filippo.io/age"
 
-	"github.com/justenwalker/mack/crypt/agecrypt"
-	"github.com/justenwalker/mack/encoding/msgpack"
-	"github.com/justenwalker/mack/exchange"
-	"github.com/justenwalker/mack/macaroon"
-	"github.com/justenwalker/mack/macaroon/thirdparty"
+	"github.com/justenwalker/mack"
+	"github.com/justenwalker/mack/thirdparty"
+	"github.com/justenwalker/mack/thirdparty/exchange"
 )
 
-//go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.config.yaml openapi.yaml
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.config.yaml openapi.yaml
 
 type API struct {
 	location   string
-	scheme     *macaroon.Scheme
+	scheme     *mack.Scheme
 	recipient  agecrypt.Recipient
 	discharger *thirdparty.Discharger
 }
@@ -44,7 +44,7 @@ func (as *API) PostValidateToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func NewAPI(scheme *macaroon.Scheme, location string) (*API, error) {
+func NewAPI(scheme *mack.Scheme, location string) (*API, error) {
 	thirdPartyID, err := age.GenerateX25519Identity()
 	if err != nil {
 		return nil, fmt.Errorf("age.GenerateX25519Identity: %w", err)
@@ -80,7 +80,7 @@ func (as *API) Handler() http.Handler {
 
 func (as *API) PostDischarge(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	ac, ok := AuthFromContext(ctx)
+	ac, ok := AuthorizationFromContext(ctx)
 	if !ok {
 		as.writeError(w, http.StatusForbidden, errors.New("forbidden"))
 		return
@@ -119,7 +119,7 @@ func (as *API) PostDischarge(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (as *API) GetIdentities(w http.ResponseWriter, r *http.Request) {
+func (as *API) GetIdentities(w http.ResponseWriter, _ *http.Request) {
 	pubKey := fmt.Sprintf("%v", as.recipient.Recipient)
 	writeModel(w, http.StatusOK, IdentitiesResponseBody{
 		{
@@ -149,7 +149,7 @@ func (as *API) PostLogin(w http.ResponseWriter, r *http.Request) {
 
 var _ ServerInterface = (*API)(nil)
 
-func createDischarger(scheme *macaroon.Scheme, location string, ids []agecrypt.Identity) (*thirdparty.Discharger, error) {
+func createDischarger(scheme *mack.Scheme, location string, ids []agecrypt.Identity) (*thirdparty.Discharger, error) {
 	dec := agecrypt.NewDecryptor(ids)
 	discharger, err := thirdparty.NewDischarger(thirdparty.DischargerConfig{
 		Location: location,
@@ -175,7 +175,10 @@ func readModel[T any](r *http.Request, b *T) error {
 }
 
 func writeModel[T any](w http.ResponseWriter, code int, t T) {
-	out, _ := json.Marshal(t)
+	out, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_, _ = w.Write(out)
@@ -184,9 +187,12 @@ func writeModel[T any](w http.ResponseWriter, code int, t T) {
 func (as *API) writeError(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
-	bs, _ := json.Marshal(ErrorResponseBody{
+	bs, err := json.Marshal(ErrorResponseBody{
 		Code:  code,
 		Error: err.Error(),
 	})
+	if err != nil {
+		panic(err)
+	}
 	_, _ = w.Write(bs)
 }

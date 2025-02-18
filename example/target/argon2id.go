@@ -21,5 +21,15 @@ func GenerateKeyArgon2ID(password []byte, salt []byte, keyLen int) ([]byte, erro
 	if len(password) == 0 {
 		return nil, fmt.Errorf("argon2id: empty password key length: %d", keyLen)
 	}
-	return argon2.IDKey(password, salt, timeReq, memoryReq, threadReq, uint32(keyLen)), nil
+	return argon2.IDKey(password, salt, timeReq, memoryReq, threadReq, safeUint32(keyLen)), nil
+}
+
+func safeUint32(n int) uint32 {
+	if n > 1<<31 {
+		return 1 << 31
+	}
+	if n < 0 {
+		return 0
+	}
+	return uint32(n)
 }

@@ -1,7 +1,7 @@
-// Package sensible exports a *macaroon.Scheme with sensible implementations for each cryptographic parameters.
+// Package sensible exports a *mack.Scheme with sensible implementations for each cryptographic parameters.
 //
 // HMACScheme       : HMAC-SHA256
-// EncryptionScheme : XSalsa20
+// EncryptionScheme : AES-256-GCM
 // BindForRequest   : HMAC(M.sig, sig)
 package sensible
 
@@ -10,21 +10,26 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/crypt"
-	"github.com/justenwalker/mack/macaroon"
 )
 
 var (
-	scheme     *macaroon.Scheme
+	scheme     *mack.Scheme
 	schemeOnce sync.Once
 )
 
-// Scheme constructs a macaroon.Scheme with sensible defaults.
-func Scheme() *macaroon.Scheme {
+const (
+	gcmStandardNonceSize = 12
+	gcmTagSize           = 16
+)
+
+// Scheme constructs a mack.Scheme with sensible defaults.
+func Scheme() *mack.Scheme {
 	schemeOnce.Do(func() {
 		var s Sensible
 		var err error
-		scheme, err = macaroon.NewScheme(macaroon.SchemeConfig{
+		scheme, err = mack.NewScheme(mack.SchemeConfig{
 			HMACScheme:           s,
 			EncryptionScheme:     s,
 			BindForRequestScheme: s,
@@ -40,15 +45,7 @@ func HMAC(key []byte, out []byte, data []byte) error {
 	return crypt.HmacSha256Z(key, out, data)
 }
 
-func Encrypt(out []byte, in []byte, nonce []byte, key []byte) ([]byte, error) {
-	return crypt.EncryptDecryptXSalsa20(out, in, nonce, key)
-}
-
-func Decrypt(out []byte, in []byte, nonce []byte, key []byte) ([]byte, error) {
-	return crypt.EncryptDecryptXSalsa20(out, in, nonce, key)
-}
-
-func BindForRequest(ts *macaroon.Macaroon, sig []byte) error {
+func BindForRequest(ts *mack.Macaroon, sig []byte) error {
 	return crypt.BindForRequestHmacSHA256(ts, sig)
 }
 
@@ -59,31 +56,48 @@ func (Sensible) HMAC(key []byte, out []byte, data []byte) error {
 }
 
 func (Sensible) Overhead() int {
-	return 0
-}
-
-func (Sensible) NonceSize() int {
-	return crypt.XSalsa20NonceSize
+	return gcmTagSize + gcmStandardNonceSize
 }
 
 func (Sensible) KeySize() int {
 	return sha256.Size
 }
 
-func (Sensible) Encrypt(out []byte, in []byte, nonce []byte, key []byte) ([]byte, error) {
-	return Encrypt(out, in, nonce, key)
+func (Sensible) Encrypt(out []byte, in []byte, key []byte) ([]byte, error) {
+	return Encrypt(out, in, key)
 }
 
-func (Sensible) Decrypt(out []byte, in []byte, nonce []byte, key []byte) ([]byte, error) {
-	return Decrypt(out, in, nonce, key)
+func (Sensible) Decrypt(out []byte, in []byte, key []byte) ([]byte, error) {
+	return Decrypt(out, in, key)
 }
 
-func (Sensible) BindForRequest(ts *macaroon.Macaroon, sig []byte) error {
+func (Sensible) BindForRequest(ts *mack.Macaroon, sig []byte) error {
 	return BindForRequest(ts, sig)
 }
 
+// Encrypt encrypts the plaintext using AES-GCM-256 with a randomly generated nonce.
+//
+// To reuse plaintext's storage for the encrypted output, use plaintext[:0]
+// as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
+// dst and additionalData may not overlap.
+func Encrypt(dst []byte, plaintext []byte, key []byte) ([]byte, error) {
+	return encryptFunc(dst, plaintext, key)
+}
+
+// Decrypt decrypts a previously encrypted plaintext produced by Encrypt.
+//
+// To reuse ciphertext's storage for the decrypted output, use ciphertext[:0]
+// as dst. Otherwise, the remaining capacity of dst must not overlap ciphertext.
+// dst and additionalData may not overlap.
+//
+// Even if the function fails, the contents of dst, up to its capacity,
+// may be overwritten.
+func Decrypt(dst []byte, ciphertext []byte, key []byte) ([]byte, error) {
+	return decryptFunc(dst, ciphertext, key)
+}
+
 var (
-	_ macaroon.HMACScheme           = Sensible{}
-	_ macaroon.EncryptionScheme     = Sensible{}
-	_ macaroon.BindForRequestScheme = Sensible{}
+	_ mack.HMACScheme           = Sensible{}
+	_ mack.EncryptionScheme     = Sensible{}
+	_ mack.BindForRequestScheme = Sensible{}
 )

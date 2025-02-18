@@ -9,14 +9,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
-	"github.com/justenwalker/mack/macaroon"
 )
 
-var (
-	_ encoding.MacaroonEncoder = V1{}
-	_ encoding.MacaroonDecoder = V1{}
-)
+var _ encoding.EncoderDecoder = V1{}
 
 type V1 struct {
 	OutputEncoder OutputEncoder
@@ -28,7 +25,7 @@ func (v V1) String() string {
 }
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v1 binary format.
-func (v V1) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
+func (v V1) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
 	br := bytes.NewReader(bs)
 	var r io.Reader = br
 	if v.InputDecoder != nil {
@@ -39,7 +36,7 @@ func (v V1) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
 }
 
 // DecodeStack decodes a stack of macaroons from libmacaroon v1 binary format.
-func (v V1) DecodeStack(bs []byte, stack *macaroon.Stack) error {
+func (v V1) DecodeStack(bs []byte, stack *mack.Stack) error {
 	br := bytes.NewReader(bs)
 	var r io.Reader = br
 	if v.InputDecoder != nil {
@@ -50,7 +47,7 @@ func (v V1) DecodeStack(bs []byte, stack *macaroon.Stack) error {
 }
 
 // EncodeMacaroon encodes a macaroon into libmacaroon v1 binary format.
-func (v V1) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
+func (v V1) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	sz := v1RawSizeBytes(m)
 	if v.OutputEncoder != nil {
 		sz = v.OutputEncoder.EncodedLength(sz)
@@ -74,7 +71,7 @@ func (v V1) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
 }
 
 // EncodeStack encodes a stack of macaroons into libmacaroon v1 binary format.
-func (v V1) EncodeStack(stack macaroon.Stack) ([]byte, error) {
+func (v V1) EncodeStack(stack mack.Stack) ([]byte, error) {
 	var buf bytes.Buffer
 	var writer io.Writer = &buf
 	if v.OutputEncoder != nil {
@@ -109,7 +106,7 @@ func NewV1Encoder(w io.Writer) *V1Encoder {
 	return &V1Encoder{writer: &byteWriter{Writer: w}}
 }
 
-func (enc *V1Encoder) EncodeMacaroon(m *macaroon.Macaroon) error {
+func (enc *V1Encoder) EncodeMacaroon(m *mack.Macaroon) error {
 	if err := v1WritePacket(enc.writer, v1FieldLocation, []byte(m.Location())); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write field '%s': %w", v1FieldLocation, err)
 	}
@@ -128,7 +125,7 @@ func (enc *V1Encoder) EncodeMacaroon(m *macaroon.Macaroon) error {
 	return nil
 }
 
-func (enc *V1Encoder) EncodeStack(stack macaroon.Stack) error {
+func (enc *V1Encoder) EncodeStack(stack mack.Stack) error {
 	for i := range stack {
 		if err := enc.EncodeMacaroon(&stack[i]); err != nil {
 			return err
@@ -145,8 +142,8 @@ func NewV1Decoder(r io.Reader) *V1Decoder {
 	return &V1Decoder{reader: &byteReader{Reader: r}}
 }
 
-func (dec *V1Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
-	var raw macaroon.Raw
+func (dec *V1Decoder) DecodeMacaroon(m *mack.Macaroon) error {
+	var raw mack.Raw
 	var (
 		field v1FieldType
 		data  []byte
@@ -172,17 +169,17 @@ func (dec *V1Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	}
 	raw.ID = data
 
-	var c macaroon.RawCaveat
+	var c mack.RawCaveat
 	for {
 		field, data, err = v1ReadPacket(dec.reader)
 		if err != nil {
 			return fmt.Errorf("v1.DecodeMacaroon: could not read caveat: %w", err)
 		}
-		switch field {
+		switch field { //nolint:exhaustive
 		case v1FieldCid:
 			if len(c.CID) != 0 { // another caveat immediately after the last CID
 				raw.Caveats = append(raw.Caveats, c)
-				c = macaroon.RawCaveat{}
+				c = mack.RawCaveat{}
 			}
 			c.CID = data
 		case v1FieldCaveatLocation:
@@ -200,7 +197,7 @@ func (dec *V1Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 				raw.Caveats = append(raw.Caveats, c)
 			}
 			raw.Signature = data
-			*m = macaroon.NewFromRaw(raw) // convert
+			*m = mack.NewFromRaw(raw) // convert
 			return nil
 		default:
 			return fmt.Errorf("v1.DecodeMacaroon: unexpected field '%s': %w", field, err)
@@ -208,10 +205,10 @@ func (dec *V1Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	}
 }
 
-func (dec *V1Decoder) DecodeStack(stack *macaroon.Stack) error {
-	var s macaroon.Stack
+func (dec *V1Decoder) DecodeStack(stack *mack.Stack) error {
+	var s mack.Stack
 	for {
-		var m macaroon.Macaroon
+		var m mack.Macaroon
 		err := dec.DecodeMacaroon(&m)
 		if errors.Is(err, io.EOF) {
 			break
@@ -258,7 +255,7 @@ func v1ReadPacket(r io.Reader) (v1FieldType, []byte, error) {
 func v1WritePacket(w io.Writer, ft v1FieldType, data []byte) error {
 	var lengthBytes [2]byte
 	var lengthHex [4]byte
-	binary.BigEndian.PutUint16(lengthBytes[:], uint16(len(data)+6+len(ft)))
+	binary.BigEndian.PutUint16(lengthBytes[:], safeUint16(len(data)+6+len(ft)))
 	hex.Encode(lengthHex[:], lengthBytes[:])
 	if _, err := w.Write(lengthHex[:]); err != nil { // Length
 		return err
@@ -278,7 +275,7 @@ func v1WritePacket(w io.Writer, ft v1FieldType, data []byte) error {
 	return nil
 }
 
-func v1WriteCaveat(w io.Writer, c *macaroon.Caveat) error {
+func v1WriteCaveat(w io.Writer, c *mack.Caveat) error {
 	if err := v1WritePacket(w, v1FieldCid, c.ID()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write caveat field '%s': %w", v1FieldCid, err)
 	}
@@ -294,7 +291,7 @@ func v1WriteCaveat(w io.Writer, c *macaroon.Caveat) error {
 	return nil
 }
 
-func v1RawSizeBytes(m *macaroon.Macaroon) (sz int) {
+func v1RawSizeBytes(m *mack.Macaroon) (sz int) {
 	sz += 6 + len(v1FieldLocation) + len(m.Location())
 	sz += 6 + len(v1FieldIdentifier) + len(m.ID())
 	sz += 6 + len(v1FieldSignature) + len(m.Signature())
@@ -306,4 +303,14 @@ func v1RawSizeBytes(m *macaroon.Macaroon) (sz int) {
 		}
 	}
 	return sz
+}
+
+func safeUint16(n int) uint16 {
+	if n > 65535 {
+		return 65535
+	}
+	if n < 0 {
+		return 0
+	}
+	return uint16(n)
 }

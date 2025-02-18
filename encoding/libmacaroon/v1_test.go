@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/justenwalker/mack/macaroon"
+	"github.com/justenwalker/mack"
 )
 
 func TestV1Encoding(t *testing.T) {
@@ -17,7 +17,7 @@ func TestV1Encoding(t *testing.T) {
 		OutputEncoder: b64,
 		InputDecoder:  b64,
 	}
-	var m macaroon.Macaroon
+	var m mack.Macaroon
 	if err = v1.DecodeMacaroon(bs, &m); err != nil {
 		t.Fatalf("Encoding.DecodeMacaroon: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestV1Encoding(t *testing.T) {
 	if enc, err = v1.EncodeMacaroon(&m); err != nil {
 		t.Fatalf("Encoding.EncodeMacaroon: %v", err)
 	}
-	var m2 macaroon.Macaroon
+	var m2 mack.Macaroon
 	if err = v1.DecodeMacaroon(enc, &m2); err != nil {
 		t.Fatalf("Encoding.DecodeMacaroon: %v", err)
 	}
@@ -44,17 +44,17 @@ func TestV1_DecodeStack(t *testing.T) {
 		OutputEncoder: b64,
 		InputDecoder:  b64,
 	}
-	var m macaroon.Macaroon
+	var m mack.Macaroon
 	if err = v1.DecodeMacaroon(bs, &m); err != nil {
 		t.Fatalf("Encoding.DecodeMacaroon: %v", err)
 	}
 
 	var enc []byte
-	stack := macaroon.Stack{m, m, m}
+	stack := mack.Stack{m, m, m}
 	if enc, err = v1.EncodeStack(stack); err != nil {
 		t.Fatalf("Encoding.EncodeStack: %v", err)
 	}
-	var stack2 macaroon.Stack
+	var stack2 mack.Stack
 	if err = v1.DecodeStack(enc, &stack2); err != nil {
 		t.Fatalf("Encoding.DecodeStack: %v", err)
 	}

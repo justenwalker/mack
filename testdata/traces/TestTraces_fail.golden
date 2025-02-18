@@ -1,0 +1,69 @@
+{
+  "traces": [
+    {
+      "rootKey": "0x0102030405060708010203040506070801020304050607080102030405060708",
+      "ops": [
+        {
+          "kind": "HMAC",
+          "args": [
+            "0x0102030405060708010203040506070801020304050607080102030405060708",
+            "hello"
+          ],
+          "result": "0xbc3d4ca4dc1e239400c01c7a7955f955aa42c2082b2f6c5b716bd98c1b62c1b2"
+        },
+        {
+          "kind": "HMAC",
+          "args": [
+            "0xbc3d4ca4dc1e239400c01c7a7955f955aa42c2082b2f6c5b716bd98c1b62c1b2",
+            "a \u003e 1"
+          ],
+          "result": "0x4097bd90962e4e9f6f6f97650cc848a5c0c6d98f083db15b0c960e6ef8f4673a"
+        },
+        {
+          "kind": "HMAC",
+          "args": [
+            "0x4097bd90962e4e9f6f6f97650cc848a5c0c6d98f083db15b0c960e6ef8f4673a",
+            "b \u003e 2"
+          ],
+          "result": "0xd588df38d0bcc8d15fa8e282b41163b083623878a2d5164f433327f833c871a6"
+        },
+        {
+          "kind": "Decrypt",
+          "args": [
+            "0xd588df38d0bcc8d15fa8e282b41163b083623878a2d5164f433327f833c871a6",
+            "0x7f8a56d8b5fb1f038ffbfce7715b6cf372318712052f748d9688950d07afe4a1def85f8a33ee8718582fc523dbf1a196a9e7f8a7b8f8c88cd83fa41b"
+          ],
+          "result": "0x0203040506070801020304050607080102030405060708010203040506070801"
+        },
+        {
+          "kind": "FAILURE",
+          "error": [
+            "macaroon: verification failed",
+            "macaroon.verify: signatures did not match: want=0da763cb86e8088f1e6c5a7325d069b374845cc421a431caaa24abc800295149, got=4ec371d54f699dc7f8ac3f58ca5db70d4da959fec1032e38aaf674a40220d1e6"
+          ]
+        }
+      ]
+    },
+    {
+      "rootKey": "0x0203040506070801020304050607080102030405060708010203040506070801",
+      "ops": [
+        {
+          "kind": "HMAC",
+          "args": [
+            "0x0203040506070801020304050607080102030405060708010203040506070801",
+            "{cK,userid == foo}"
+          ],
+          "result": "0x4ec371d54f699dc7f8ac3f58ca5db70d4da959fec1032e38aaf674a40220d1e6"
+        },
+        {
+          "kind": "BindForRequest",
+          "args": [
+            "0xf8c8a4fc7f9dfab1c5a10d1bdc747bc95d5f16c359b175b4ffd25ea1b2707ffb",
+            "0x4ec371d54f699dc7f8ac3f58ca5db70d4da959fec1032e38aaf674a40220d1e6"
+          ],
+          "result": "0x0da763cb86e8088f1e6c5a7325d069b374845cc421a431caaa24abc800295149"
+        }
+      ]
+    }
+  ]
+}

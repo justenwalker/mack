@@ -2,6 +2,8 @@
 
 This module is an example of a pair of services implementing Macaroons for authorization for API operations.
 
+- `agecrypt` - contains an implementation of the `exchange.Encryptor` and `exchange.Decryptor` interface using [Age](https://age-encryption.org).
+- `msgpack` - contains an implementation `encoding.EncoderDecoder` and `exchange.EncoderDecoder` encoding using [MsgPack](https://msgpack.org).
 - `auth` - contains the authentication service, which issues discharge macaroons authorizing requests
 - `target` - contains the target service, which authorizes operations using macaroons, and creates new macaroons
   from auth tokens obtained from the auth service.

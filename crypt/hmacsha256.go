@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"errors"
 
+	"github.com/justenwalker/mack"
 	myhmac "github.com/justenwalker/mack/crypt/internal/hmac"
-	"github.com/justenwalker/mack/macaroon"
 )
 
 // HmacSha256Z implements the HMAC function using SHA-256 with zero allocations.
@@ -25,7 +25,7 @@ func HmacSha256(key []byte, out []byte, data []byte) error {
 
 // BindForRequestHmacSHA256 implements BindForRequest by using HMAC-SHA256.
 // sig = HMacSHA256(tm.Sig, sig).
-func BindForRequestHmacSHA256(tm *macaroon.Macaroon, sig []byte) error {
+func BindForRequestHmacSHA256(tm *mack.Macaroon, sig []byte) error {
 	if len(sig) < sha256.Size {
 		return errors.New("sig too short, must be at least 32 bytes")
 	}
@@ -35,7 +35,7 @@ func BindForRequestHmacSHA256(tm *macaroon.Macaroon, sig []byte) error {
 
 // BindForRequestSHA256 implements BindForRequest by using SHA256.
 // sig = SHA256(sig :: tm.Sig).
-func BindForRequestSHA256(tm *macaroon.Macaroon, sig []byte) error {
+func BindForRequestSHA256(tm *mack.Macaroon, sig []byte) error {
 	if len(sig) < sha256.Size {
 		return errors.New("sig too short, must be at least 32 bytes")
 	}

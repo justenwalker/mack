@@ -1,23 +1,31 @@
 package encoding
 
-import "github.com/justenwalker/mack/macaroon"
+import "github.com/justenwalker/mack"
 
-// MacaroonEncoder encodes a macaroon into bytes.
+// EncoderDecoder can encode and decode *mack.Macaroon and mack.Stack to and from byte representation.
+type EncoderDecoder interface {
+	MacaroonEncoder
+	MacaroonDecoder
+	StackEncoder
+	StackDecoder
+}
+
+// MacaroonEncoder encodes a [mack.Stack] into bytes.
 type MacaroonEncoder interface {
-	EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error)
+	EncodeMacaroon(m *mack.Macaroon) ([]byte, error)
 }
 
-// StackEncoder encodes a macaroon stack into bytes.
+// StackEncoder encodes a [mack.Stack] into bytes.
 type StackEncoder interface {
-	EncodeStack(stack macaroon.Stack) ([]byte, error)
+	EncodeStack(stack mack.Stack) ([]byte, error)
 }
 
-// MacaroonDecoder decodes a macaroon from bytes.
+// MacaroonDecoder decodes a [mack.Macaroon] from bytes.
 type MacaroonDecoder interface {
-	DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error
+	DecodeMacaroon(bs []byte, m *mack.Macaroon) error
 }
 
-// StackDecoder decodes a macaroon authorization stack from bytes.
+// StackDecoder decodes a [mack.Macaroon] authorization stack from bytes.
 type StackDecoder interface {
-	DecodeStack(bs []byte, stack *macaroon.Stack) error
+	DecodeStack(bs []byte, stack *mack.Stack) error
 }

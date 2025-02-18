@@ -7,14 +7,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
-	"github.com/justenwalker/mack/macaroon"
 )
 
-var (
-	_ encoding.MacaroonEncoder = V2{}
-	_ encoding.MacaroonDecoder = V2{}
-)
+var _ encoding.EncoderDecoder = V2{}
 
 type V2 struct {
 	OutputEncoder OutputEncoder
@@ -26,7 +23,7 @@ func (v V2) String() string {
 }
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v2 binary format.
-func (v V2) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
+func (v V2) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
 	br := bytes.NewReader(bs)
 	var r io.Reader = br
 	if v.InputDecoder != nil {
@@ -37,7 +34,7 @@ func (v V2) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
 }
 
 // DecodeStack decodes a stack of macaroons from libmacaroon v2 binary format.
-func (v V2) DecodeStack(bs []byte, stack *macaroon.Stack) error {
+func (v V2) DecodeStack(bs []byte, stack *mack.Stack) error {
 	br := bytes.NewReader(bs)
 	var r io.Reader = br
 	if v.InputDecoder != nil {
@@ -48,7 +45,7 @@ func (v V2) DecodeStack(bs []byte, stack *macaroon.Stack) error {
 }
 
 // EncodeMacaroon encodes a macaroon into libmacaroon v2 binary format.
-func (v V2) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
+func (v V2) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	sz := v2RawSizeBytes(m)
 	if v.OutputEncoder != nil {
 		sz = v.OutputEncoder.EncodedLength(sz)
@@ -71,7 +68,7 @@ func (v V2) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
 }
 
 // EncodeStack encodes a stack of macaroons into libmacaroon v2 binary format.
-func (v V2) EncodeStack(stack macaroon.Stack) ([]byte, error) {
+func (v V2) EncodeStack(stack mack.Stack) ([]byte, error) {
 	var sz int
 	for i := range stack {
 		sz += v2RawSizeBytes(&stack[i])
@@ -118,7 +115,7 @@ func NewV2Encoder(w io.Writer) *V2Encoder {
 	return &V2Encoder{writer: &byteWriter{Writer: w}}
 }
 
-func (enc *V2Encoder) EncodeMacaroon(m *macaroon.Macaroon) error {
+func (enc *V2Encoder) EncodeMacaroon(m *mack.Macaroon) error {
 	if err := enc.writer.WriteByte(v2VersionByte); err != nil {
 		return err
 	}
@@ -157,7 +154,7 @@ func (enc *V2Encoder) EncodeMacaroon(m *macaroon.Macaroon) error {
 	return nil
 }
 
-func (enc *V2Encoder) EncodeStack(stack macaroon.Stack) error {
+func (enc *V2Encoder) EncodeStack(stack mack.Stack) error {
 	for i := range stack {
 		if err := enc.EncodeMacaroon(&stack[i]); err != nil {
 			return err
@@ -166,7 +163,7 @@ func (enc *V2Encoder) EncodeStack(stack macaroon.Stack) error {
 	return nil
 }
 
-func (enc *V2Encoder) encodeCaveat(c *macaroon.Caveat) error {
+func (enc *V2Encoder) encodeCaveat(c *mack.Caveat) error {
 	if c.Location() != "" {
 		if err := enc.writer.WriteByte(byte(v2FieldTypeLocation)); err != nil {
 			return err
@@ -221,7 +218,7 @@ func NewV2Decoder(r io.Reader) *V2Decoder {
 	return &V2Decoder{reader: &byteReader{Reader: r}}
 }
 
-func (dec *V2Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
+func (dec *V2Decoder) DecodeMacaroon(m *mack.Macaroon) error {
 	ver, err := dec.reader.ReadByte()
 	if err != nil {
 		return fmt.Errorf("v2.DecodeMacaroon: could not read version byte: %w", err)
@@ -229,7 +226,7 @@ func (dec *V2Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	if ver != v2VersionByte {
 		return fmt.Errorf("v2.DecodeMacaroon: invalid version byte: %x, expected=%x", ver, v2VersionByte)
 	}
-	var raw macaroon.Raw
+	var raw mack.Raw
 
 	var (
 		field v2FieldType
@@ -268,14 +265,14 @@ func (dec *V2Decoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 		return fmt.Errorf("v2.DecodeMacaroon: unexpected field type: %x", field)
 	}
 	raw.Signature = data
-	*m = macaroon.NewFromRaw(raw)
+	*m = mack.NewFromRaw(raw)
 	return nil
 }
 
-func (dec *V2Decoder) DecodeStack(stack *macaroon.Stack) error {
-	var s macaroon.Stack
+func (dec *V2Decoder) DecodeStack(stack *mack.Stack) error {
+	var s mack.Stack
 	for {
-		var m macaroon.Macaroon
+		var m mack.Macaroon
 		err := dec.DecodeMacaroon(&m)
 		if errors.Is(err, io.EOF) {
 			break
@@ -289,12 +286,12 @@ func (dec *V2Decoder) DecodeStack(stack *macaroon.Stack) error {
 	return nil
 }
 
-func (dec *V2Decoder) readHeader(m *macaroon.Raw) (bool, error) {
+func (dec *V2Decoder) readHeader(m *mack.Raw) (bool, error) {
 	field, data, err := dec.readField()
 	if err != nil {
 		return false, fmt.Errorf("v2.DecodeMacaroon: could not read field: %w", err)
 	}
-	switch field {
+	switch field { //nolint:exhaustive
 	case v2FieldTypeLocation:
 		if len(m.ID) > 0 {
 			return false, errors.New("v2.DecodeMacaroon: 'location' encountered after 'id'")
@@ -317,13 +314,13 @@ func (dec *V2Decoder) readHeader(m *macaroon.Raw) (bool, error) {
 	}
 }
 
-func (dec *V2Decoder) readCaveat(m *macaroon.Raw) (bool, error) {
-	var c macaroon.RawCaveat
+func (dec *V2Decoder) readCaveat(m *mack.Raw) (bool, error) {
+	var c mack.RawCaveat
 	field, data, err := dec.readField()
 	if err != nil {
 		return false, fmt.Errorf("v2.DecodeMacaroon: could not read caveat field: %w", err)
 	}
-	switch field {
+	switch field { //nolint:exhaustive
 	case v2FieldTypeLocation:
 		c.Location = string(data)
 	case v2FieldTypeID:
@@ -349,7 +346,7 @@ func (dec *V2Decoder) readCaveat(m *macaroon.Raw) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("v2.DecodeMacaroon: could not read caveat field: %w", err)
 	}
-	switch field {
+	switch field { //nolint:exhaustive
 	case v2FieldTypeVID:
 		c.VID = data
 	case v2FieldTypeEOS: // optional VID not given
@@ -404,7 +401,7 @@ func (enc *V2Encoder) writeFieldValue(data []byte) error {
 	return nil
 }
 
-func v2RawSizeBytes(m *macaroon.Macaroon) int {
+func v2RawSizeBytes(m *mack.Macaroon) int {
 	var varint [8]byte
 	var n int
 	sz := 1 // version byte

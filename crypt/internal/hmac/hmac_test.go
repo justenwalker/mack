@@ -3,6 +3,7 @@ package hmac_test
 import (
 	"bytes"
 	"crypto/hmac"
+	crand "crypto/rand"
 	"crypto/sha256"
 	"math/rand"
 	"reflect"
@@ -10,50 +11,44 @@ import (
 	"testing/quick"
 
 	myhmac "github.com/justenwalker/mack/crypt/internal/hmac"
-	"github.com/justenwalker/mack/crypt/random"
 )
-
-var benchNoOptimize [sha256.Size]byte
 
 func BenchmarkHMacSHA256(b *testing.B) {
 	b.Run("zero_allocs", func(b *testing.B) {
 		keyout := make([]byte, sha256.Size)
-		random.Read(keyout)
+		_, _ = crand.Read(keyout)
 		value := make([]byte, 1024)
-		random.Read(value)
+		_, _ = crand.Read(value)
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			myhmac.SHA256(keyout, keyout, value)
 		}
-		copy(benchNoOptimize[:], keyout)
 	})
 	b.Run("stdlib", func(b *testing.B) {
 		keyout := make([]byte, sha256.Size)
-		random.Read(keyout)
+		_, _ = crand.Read(keyout)
 		value := make([]byte, 1024)
-		random.Read(value)
+		_, _ = crand.Read(value)
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			stdlibHMAC(keyout, keyout, value)
 		}
-		copy(benchNoOptimize[:], keyout)
 	})
 	b.Run("stdlib-statickey-reset", func(b *testing.B) {
 		keyout := make([]byte, sha256.Size)
-		random.Read(keyout)
+		_, _ = crand.Read(keyout)
 		value := make([]byte, 1024)
-		random.Read(value)
+		_, _ = crand.Read(value)
 		h := hmac.New(sha256.New, keyout)
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			h.Reset()
 			h.Write(value)
 			h.Sum(keyout[:0])
 		}
-		copy(benchNoOptimize[:], keyout)
 	})
 }
 

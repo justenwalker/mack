@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/justenwalker/mack/macaroon"
+	"github.com/justenwalker/mack"
 )
 
-func SetMacaroonStackAuthorization(header http.Header, stack macaroon.Stack) {
+func SetMacaroonStackAuthorization(header http.Header, stack mack.Stack) {
 	if enc, err := EncodeMacaroonStack(stack); err == nil {
 		header.Set("Authorization", "Bearer "+enc)
 	}

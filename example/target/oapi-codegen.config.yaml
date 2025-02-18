@@ -1,4 +1,4 @@
-package: targetsvc
+package: target
 generate:
   client: true
   std-http-server: true

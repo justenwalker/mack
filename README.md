@@ -66,20 +66,19 @@ NOTE: some conventional JWT claims can be interpreted as caveats:
 
 ### Packages
 
-- `macaroon` - The main package. These are where all the Macaroon primitive types and operations reside.
+- `mack` - The main package. These are where all the Macaroon primitive types and operations reside.
 - `sensible` - Provides sensible default implementations of cryptographic functions.
 - `thirdparty` - Provides a framework for constructing third-party caveats and discharging them.
-- `encoding` - Contains a collection of encoding operations on Macaroons for serializing and deserializing them.
-- `exchange` - Implements interfaces in `thirdparty` by using encrypted caveat ids.
+- `thirdparty/exchange` - Implements interfaces in `thirdparty` by using encrypted caveat ids.
 
 ### Create a Macaroon Scheme
 
-First, you must create a `macaroon.Scheme`.
+First, you must create a `mack.Scheme`.
 
 You can create a new scheme with:
 
 ```go
-scheme := macaroon.NewScheme(macaroon.SchemeConfig{
+scheme := mack.NewScheme(mack.SchemeConfig{
 	HMACScheme:           hms,
 	EncryptionScheme:     es,
 	BindForRequestScheme: b4rs,
@@ -94,10 +93,10 @@ Each configuration option is an interface implementing a specific cryptographic 
 
 ### Sensible Defaults
 
-There is a `sensible` package can be used for creating a `macaroon.Scheme` with sensible defaults:
+There is a `sensible` package can be used for creating a `mack.Scheme` with sensible defaults:
 
 - `HMACScheme`: HMAC-SHA256
-- `EncryptionScheme`: XSalsa20
+- `EncryptionScheme`: AES-256-GCM with Random  96-bit Nonce
 - `BindForRequestScheme`: discharge.Sig = `HMAC-SHA256(Auth.Sig, Discharge.Sig)`
 
 ### Create a Macaroon
@@ -111,13 +110,13 @@ scheme := sensible.Scheme()
 // Macaroon ID (nonce): Should be random, and never used again.
 // - UUID might be a good choice.
 id := make([]byte, 16)
-random.Read(id)
+rand.Read(id)
 
 // Macaroon Root Key:
 // You have to be able to associate the Macaroon ID with this key somehow.
 // Perhaps you store the id/key pair in a DB or derive a key from a pre-shared password and the macaroon id.
 key := make([]byte, scheme.KeySize())
-random.Read(key)
+rand.Read(key)
 
 // Macaroon Caveats:
 // Assemble the list of initial caveats.
@@ -159,13 +158,12 @@ Clients create a stack by using `Scheme.PrepareStack`.
 stack, err := scheme.PrepareStack(authorizingMacaroon, dischargeMacaroons)
 ```
 
-The stack is then transmitted with the request. This is also implementation specific, but one way of encoding the stack
-is to use the `encoding/proto` or `encoding/msgpack` packages.
+The stack is then transmitted with the request. How the stack is encoded is implementation specific, so see [example](./example) for implementation.
 
 After encoding the stack into bytes, it can be put into a request body or encoded as Base64 and added to an HTTP Authorization
 header. Whatever the service expects.
 
-The Service, after receiving this stack, should decode it (perhaps by using `encoding/proto` or `encoding/msgpack`).
+The Service, after receiving this stack, should decode it.
 
 Validation on the server side happens in two phases: Verifying, and Clearing.
 
@@ -194,7 +192,7 @@ if err := verifiedStack.Clear(ctx, checker); err != nil {
 // ...
 ```
 
-### (Attenuation) Add Third-Party Caveats to a Macaroon 
+### Add Third-Party Caveats to a Macaroon (Attenuation)
 
 While you can construct these values from scratch and use `scheme.AddThirdPartyCaveat`, the `thirdparty` package can help generate 
 and apply these values to a Macaroon via a `thirdparty.Attenuator`.
@@ -236,13 +234,42 @@ issuer := exchange.CaveatIDIssuer{
     Encoder:   encoder,
 }
 ```
+
+```mermaid
+flowchart TD
+    subgraph Add 3p Caveat
+    M1[/Macaroon/]
+    PR[/3rd Party Predicate/]
+    M1 ~~~ PR
+    M1 ~~~ M2
+    end
+    subgraph Attenuator
+        PR --> T[/Ticket/]
+        RK[/Random Source/] -- Random Data --> CK
+        CK[/Caveat Key/] --> T
+        CID[/Caveat ID/]
+        ECK(Encrypt Caveat Key)
+        CK --> ECK
+        M1 -- sig --> ECK
+        T --> E
+        ECK --> VID[/Verification ID/]
+        ECK ~~~ CID
+        subgraph CaveatIDIssuer
+            E[Encoder] -- encoded ticket --> C
+            C[Encryptor] -- encrypted bytes --> CID
+        end
+        VID --> APPEND
+        CID --> APPEND
+        APPEND(Append Caveat) --> M2
+        M2[/New Macaroon/]
+    end
+```
  
 Possible implementations for the `Encoder` interface:
-- `encoding/proto` - Encodes using [Protobuf v3](https://protobuf.dev/programming-guides/proto3/)
-- `encoding/msgpack`- Encodes using [MsgPack](https://msgpack.org/index.html)
+- [example/msgpack](./example/msgpack)- Encodes using [MsgPack](https://msgpack.org/index.html)
 
 A possible implementation for the Encryptor/Decryptor:
-- `crypt/agecrypt`: uses [Age](https://age-encryption.org/) to encrypt third-party caveat IDs using Age Recipient.
+- [example/agecrypt](./example/agecrypt): uses [Age](https://age-encryption.org/) to encrypt third-party caveat IDs using Age Recipient.
 
 
 ## Requesting a Discharge Macaroon from a Third Party
@@ -301,12 +328,32 @@ text := exchange.TicketExtractor{
 }
 ```
 
+```mermaid
+flowchart TD
+    subgraph Discharger
+        S((START)) --> CID
+        CID[/Third-party Caveat ID/] --> D[Decryptor]
+        subgraph TicketExtractor
+            D -- decrypted bytes --> DEC[Decoder]
+            DEC -- decoded ticket --> T[Ticket]
+        end
+        T --> P[/Predicate/]
+        T --> CK[/Cavate Key/]
+        P --> PC{Predicate Checker}
+        PC -- ok --> CDM(Create Discharge Macaroon)
+        PC -- fail --> E((ERROR))
+        CDM --> DCM[/Discharge Macaroon/]
+        CID --> DCM
+        CK --> DCM
+        DCM --> END((END))
+    end
+```
+
 Possible implementations for the `Decoder` interface:
-- `encoding/proto` - Encodes using [Protobuf v3](https://protobuf.dev/programming-guides/proto3/)
-- `encoding/msgpack`- Encodes using [MsgPack](https://msgpack.org/index.html)
+- [example/msgpack](./example/msgpack) - Encodes using [MsgPack](https://msgpack.org/index.html)
 
 A possible implementation for the `Decryptor`:
-- `crypt/agecrypt`: uses [Age](https://age-encryption.org/) to decrypt caveat IDs using Age Identities.
+- [example/agecrypt](./example/agecrypt): uses [Age](https://age-encryption.org/) to decrypt caveat IDs using Age Identities.
 
 ### PredicateChecker
 

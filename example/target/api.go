@@ -5,34 +5,35 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"example/agecrypt"
 	"example/auth"
+	"example/msgpack"
 	"filippo.io/age"
 	"github.com/google/uuid"
 
-	"github.com/justenwalker/mack/crypt/agecrypt"
-	"github.com/justenwalker/mack/encoding/msgpack"
-	"github.com/justenwalker/mack/exchange"
-	"github.com/justenwalker/mack/macaroon"
-	"github.com/justenwalker/mack/macaroon/thirdparty"
+	"github.com/justenwalker/mack"
+	"github.com/justenwalker/mack/thirdparty"
+	"github.com/justenwalker/mack/thirdparty/exchange"
 )
 
-//go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.config.yaml openapi.yaml
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=oapi-codegen.config.yaml openapi.yaml
 
 type API struct {
 	secretKey []byte
 	location  string
-	scheme    *macaroon.Scheme
+	scheme    *mack.Scheme
 	tps       *thirdparty.Attenuator
 	authSvc   *auth.ClientWithResponses
 }
 
 type APIConfig struct {
-	Scheme      *macaroon.Scheme
+	Scheme      *mack.Scheme
 	Location    string
 	SecretKey   string
 	AuthService string
@@ -73,7 +74,7 @@ func NewAPI(ctx context.Context, cfg APIConfig) (*API, error) {
 
 func (as *API) GetMacaroonRequest(w http.ResponseWriter, r *http.Request, params GetMacaroonRequestParams) {
 	if params.Org == nil {
-		as.writeError(w, http.StatusBadRequest, fmt.Errorf("must provide an org"))
+		as.writeError(w, http.StatusBadRequest, errors.New("must provide an org"))
 	}
 	caveats := [][]byte{
 		caveatBytes("org", *params.Org),
@@ -83,7 +84,7 @@ func (as *API) GetMacaroonRequest(w http.ResponseWriter, r *http.Request, params
 	}
 	ac, ok := AuthFromContext(r.Context())
 	if !ok {
-		as.writeError(w, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		as.writeError(w, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	resp, err := as.authSvc.PostValidateTokenWithResponse(r.Context(), auth.PostValidateTokenJSONRequestBody{
@@ -124,7 +125,7 @@ func (as *API) GetMacaroonRequest(w http.ResponseWriter, r *http.Request, params
 func (as *API) PostOrgAppDo(w http.ResponseWriter, r *http.Request, org string, app string) {
 	ac, ok := AuthFromContext(r.Context())
 	if !ok || ac.Stack == nil {
-		as.writeError(w, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		as.writeError(w, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	stack := *ac.Stack
@@ -133,10 +134,10 @@ func (as *API) PostOrgAppDo(w http.ResponseWriter, r *http.Request, org string, 
 		as.writeError(w, http.StatusUnauthorized, err)
 		return
 	}
-	ctx := macaroon.WithVerifyContext(r.Context())
+	ctx := mack.WithVerifyContext(r.Context())
 	vc, err := as.scheme.Verify(ctx, key, stack)
 	if err != nil {
-		traces := macaroon.GetTraces(ctx)
+		traces := mack.GetTraces(ctx)
 		log.Println("Target API: macaroon verify failed, debug verification follows")
 		log.Println(traces.String())
 		as.writeError(w, http.StatusUnauthorized, err)
@@ -171,23 +172,22 @@ func getAuthServiceRecipient(ctx context.Context, client auth.ClientWithResponse
 	if err != nil {
 		return agecrypt.Recipient{}, err
 	}
-	for _, id := range *resp.JSONDefault {
-		var pubkey []byte
-		var recps []age.Recipient
-		pubkey, err = base64.StdEncoding.DecodeString(id.PublicKey)
-		if err != nil {
-			return agecrypt.Recipient{}, err
-		}
-		recps, err = age.ParseRecipients(bytes.NewReader(pubkey))
-		if err != nil {
-			return agecrypt.Recipient{}, err
-		}
-		return agecrypt.Recipient{
-			KeyID:     id.KeyId,
-			Recipient: recps[0],
-		}, nil
+	ids := *resp.JSONDefault
+	if len(ids) == 0 {
+		return agecrypt.Recipient{}, errors.New("unable to find recipient")
 	}
-	return agecrypt.Recipient{}, fmt.Errorf("unable to find recipient")
+	pubkey, err := base64.StdEncoding.DecodeString(ids[0].PublicKey)
+	if err != nil {
+		return agecrypt.Recipient{}, err
+	}
+	recps, err := age.ParseRecipients(bytes.NewReader(pubkey))
+	if err != nil {
+		return agecrypt.Recipient{}, err
+	}
+	return agecrypt.Recipient{
+		KeyID:     ids[0].KeyId,
+		Recipient: recps[0],
+	}, nil
 }
 
 var _ ServerInterface = (*API)(nil)
@@ -197,7 +197,10 @@ func (as *API) keyID(id []byte) ([]byte, error) {
 }
 
 func writeModel[T any](w http.ResponseWriter, code int, t T) {
-	out, _ := json.Marshal(t)
+	out, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_, _ = w.Write(out)
@@ -206,9 +209,12 @@ func writeModel[T any](w http.ResponseWriter, code int, t T) {
 func (as *API) writeError(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
-	bs, _ := json.Marshal(ErrorResponseBody{
+	bs, err := json.Marshal(ErrorResponseBody{
 		Code:  code,
 		Error: err.Error(),
 	})
+	if err != nil {
+		panic(err)
+	}
 	_, _ = w.Write(bs)
 }

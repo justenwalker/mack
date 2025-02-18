@@ -10,14 +10,11 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
-	"github.com/justenwalker/mack/macaroon"
 )
 
-var (
-	_ encoding.MacaroonEncoder = V2J{}
-	_ encoding.MacaroonDecoder = V2J{}
-)
+var _ encoding.EncoderDecoder = V2J{}
 
 type V2J struct{}
 
@@ -26,21 +23,21 @@ func (V2J) String() string {
 }
 
 // DecodeMacaroon decodes a macaroon from v2 json format.
-func (V2J) DecodeMacaroon(bs []byte, m *macaroon.Macaroon) error {
+func (V2J) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
 	br := bytes.NewReader(bs)
 	dec := NewV2JDecoder(br)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a macaroon stack from v2 json format.
-func (V2J) DecodeStack(bs []byte, stack *macaroon.Stack) error {
+func (V2J) DecodeStack(bs []byte, stack *mack.Stack) error {
 	br := bytes.NewReader(bs)
 	dec := NewV2JDecoder(br)
 	return dec.DecodeStack(stack)
 }
 
 // EncodeMacaroon encodes a macaroon into libmacaroon v2 json format.
-func (V2J) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
+func (V2J) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := NewV2JEncoder(&buf)
 	if err := enc.EncodeMacaroon(m); err != nil {
@@ -50,7 +47,7 @@ func (V2J) EncodeMacaroon(m *macaroon.Macaroon) ([]byte, error) {
 }
 
 // EncodeStack encodes a stack of macaroons into libmacaroon v2 json format.
-func (V2J) EncodeStack(stack macaroon.Stack) ([]byte, error) {
+func (V2J) EncodeStack(stack mack.Stack) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := NewV2JEncoder(&buf)
 	if err := enc.EncodeStack(stack); err != nil {
@@ -67,7 +64,7 @@ func NewV2JEncoder(w io.Writer) *V2JEncoder {
 	return &V2JEncoder{encoder: json.NewEncoder(w)}
 }
 
-func (enc *V2JEncoder) EncodeMacaroon(m *macaroon.Macaroon) error {
+func (enc *V2JEncoder) EncodeMacaroon(m *mack.Macaroon) error {
 	err := enc.encoder.Encode(v2jMacaroonToJSON(m))
 	if err != nil {
 		return fmt.Errorf("v2j.EncodeMacaroon: failed to marshal json: %w", err)
@@ -75,7 +72,7 @@ func (enc *V2JEncoder) EncodeMacaroon(m *macaroon.Macaroon) error {
 	return nil
 }
 
-func (enc *V2JEncoder) EncodeStack(stack macaroon.Stack) error {
+func (enc *V2JEncoder) EncodeStack(stack mack.Stack) error {
 	jsonStack := make([]v2jMacaroonJSON, len(stack))
 	for i := range stack {
 		jsonStack[i] = v2jMacaroonToJSON(&stack[i])
@@ -91,7 +88,7 @@ func NewV2JDecoder(r io.Reader) *V2JDecoder {
 	return &V2JDecoder{decoder: json.NewDecoder(r)}
 }
 
-func (dec *V2JDecoder) DecodeMacaroon(m *macaroon.Macaroon) error {
+func (dec *V2JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 	var js v2jMacaroonJSON
 	err := dec.decoder.Decode(&js)
 	if err != nil {
@@ -100,13 +97,13 @@ func (dec *V2JDecoder) DecodeMacaroon(m *macaroon.Macaroon) error {
 	return v2jMacaroonFromJSON(&js, m)
 }
 
-func (dec *V2JDecoder) DecodeStack(stack *macaroon.Stack) error {
+func (dec *V2JDecoder) DecodeStack(stack *mack.Stack) error {
 	var jsonstack []v2jMacaroonJSON
 	err := dec.decoder.Decode(&jsonstack)
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeStack: failed to unmarshal json: %w", err)
 	}
-	s := make(macaroon.Stack, len(jsonstack))
+	s := make(mack.Stack, len(jsonstack))
 	for i := range jsonstack {
 		return v2jMacaroonFromJSON(&jsonstack[i], &s[i])
 	}
@@ -114,7 +111,7 @@ func (dec *V2JDecoder) DecodeStack(stack *macaroon.Stack) error {
 	return nil
 }
 
-func v2jMacaroonToJSON(m *macaroon.Macaroon) v2jMacaroonJSON {
+func v2jMacaroonToJSON(m *mack.Macaroon) v2jMacaroonJSON {
 	id, id64 := v2jJSONData(m.ID())
 	sig, sig64 := v2jJSONData(m.Signature())
 	cs := make([]v2jCaveatJSON, len(m.Caveats()))
@@ -140,8 +137,8 @@ func v2jMacaroonToJSON(m *macaroon.Macaroon) v2jMacaroonJSON {
 	}
 }
 
-func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *macaroon.Macaroon) error {
-	var raw macaroon.Raw
+func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *mack.Macaroon) error {
+	var raw mack.Raw
 	var err error
 	if js.Version != 2 {
 		return fmt.Errorf("v2j.DecodeMacaroon: unsupported version: %d", js.Version)
@@ -151,7 +148,7 @@ func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *macaroon.Macaroon) error {
 		return fmt.Errorf("v2j.DecodeMacaroon: failed to read macaroon id: %w", err)
 	}
 	raw.Location = js.Location
-	raw.Caveats = make([]macaroon.RawCaveat, len(js.Caveats))
+	raw.Caveats = make([]mack.RawCaveat, len(js.Caveats))
 	for i, c := range js.Caveats {
 		raw.Caveats[i].CID, err = v2jJSONFieldData(c.ID, c.IDB64)
 		if err != nil {
@@ -167,7 +164,7 @@ func v2jMacaroonFromJSON(js *v2jMacaroonJSON, m *macaroon.Macaroon) error {
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeMacaroon: failed to read signature: %w", err)
 	}
-	*m = macaroon.NewFromRaw(raw)
+	*m = mack.NewFromRaw(raw)
 	return nil
 }
 
