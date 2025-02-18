@@ -9,9 +9,10 @@ import (
 	"net/http"
 	"time"
 
+	"filippo.io/age"
+
 	"example/agecrypt"
 	"example/msgpack"
-	"filippo.io/age"
 
 	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/thirdparty"
