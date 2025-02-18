@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"example/headers"
+	"example/msgpack"
 
-	"github.com/justenwalker/mack/encoding/msgpack"
-	"github.com/justenwalker/mack/macaroon"
+	"github.com/justenwalker/mack"
 )
 
 type APIClient struct {
@@ -28,11 +28,11 @@ func NewAPIClient(location string, accessToken string) (*APIClient, error) {
 	}, nil
 }
 
-func (c *APIClient) GetMacaroon(ctx context.Context, org string, app string) (m macaroon.Macaroon, err error) {
+func (c *APIClient) GetMacaroon(ctx context.Context, org string, app string) (m mack.Macaroon, err error) {
 	resp, err := c.client.GetMacaroonRequestWithResponse(ctx, &GetMacaroonRequestParams{
 		Org: ptr(org),
 		App: ptr(app),
-	}, func(ctx context.Context, req *http.Request) error {
+	}, func(_ context.Context, req *http.Request) error {
 		req.Header.Set("Authorization", "Bearer "+c.accessToken)
 		return nil
 	})
@@ -63,7 +63,7 @@ type Operation struct {
 	Args      []string
 }
 
-func (c *APIClient) DoOperation(ctx context.Context, stack macaroon.Stack, op Operation) (map[string]interface{}, error) {
+func (c *APIClient) DoOperation(ctx context.Context, stack mack.Stack, op Operation) (map[string]interface{}, error) {
 	var args *[]string
 	if len(op.Args) == 0 {
 		args = &op.Args
@@ -71,7 +71,7 @@ func (c *APIClient) DoOperation(ctx context.Context, stack macaroon.Stack, op Op
 	resp, err := c.client.PostOrgAppDoWithResponse(ctx, op.Org, op.App, PostOrgAppDoJSONRequestBody{
 		Arguments: args,
 		Operation: op.Operation,
-	}, func(ctx context.Context, req *http.Request) error {
+	}, func(_ context.Context, req *http.Request) error {
 		headers.SetMacaroonStackAuthorization(req.Header, stack)
 		return nil
 	})

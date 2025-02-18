@@ -7,7 +7,10 @@ import (
 )
 
 func caveatBytes(op string, args ...string) []byte {
-	bs, _ := json.Marshal(Caveat{Op: op, Args: args})
+	bs, err := json.Marshal(Caveat{Op: op, Args: args})
+	if err != nil {
+		panic(err)
+	}
 	return bs
 }
 
@@ -26,10 +29,10 @@ type Caveat struct {
 }
 
 type PredicateChecker struct {
-	AuthContext AuthContext
+	AuthContext Authorization
 }
 
-func (p PredicateChecker) CheckPredicate(ctx context.Context, predicate []byte) (bool, error) {
+func (p PredicateChecker) CheckPredicate(_ context.Context, predicate []byte) (bool, error) {
 	c, err := caveatFromBytes(predicate)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode caveat '%s': %w", string(predicate), err)

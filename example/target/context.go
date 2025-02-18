@@ -3,12 +3,12 @@ package target
 import (
 	"context"
 
-	"github.com/justenwalker/mack/macaroon"
+	"github.com/justenwalker/mack"
 )
 
 type AuthContext struct {
 	Token string
-	Stack *macaroon.Stack
+	Stack *mack.Stack
 }
 
 type authContextKey struct{}

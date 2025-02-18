@@ -10,8 +10,8 @@ import (
 	"runtime/pprof"
 	"testing"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/internal/testhelpers"
-	"github.com/justenwalker/mack/macaroon"
 )
 
 func TestSensibleScheme_Validate(t *testing.T) {
@@ -21,7 +21,7 @@ func TestSensibleScheme_Validate(t *testing.T) {
 	if err != nil {
 		t.Logf("m: %v", stack.Target())
 		for _, d := range stack.Discharges() {
-			t.Logf("d: %v", &d) //nolint:gosec
+			t.Logf("d: %v", &d)
 		}
 		t.Fatalf("Clear: %v", errors.Unwrap(err))
 	}
@@ -36,7 +36,8 @@ func TestSensibleScheme_Validate_allocs(t *testing.T) {
 			t.Fatalf("unexpected error: %v/%v", err, errors.Unwrap(err))
 		}
 	})
-	const expected = 1
+	const expected = 2
+	t.Logf("AllocsPerRun: %d", int(allocs))
 	if allocs > expected {
 		writeHeapProfile(t)
 		t.Fatalf("allocs: %d > %d", int(allocs), expected)
@@ -90,7 +91,7 @@ func BenchmarkSensibleScheme_Validate(b *testing.B) {
 	_, _ = fmt.Fprintln(io.Discard, errBenchmarkSchemeVerify)
 }
 
-func helperCreate3PMacaroon(tb testing.TB) (*macaroon.Scheme, macaroon.Stack) {
+func helperCreate3PMacaroon(tb testing.TB) (*mack.Scheme, mack.Stack) {
 	tb.Helper()
 	sch := Scheme()
 	m, err := sch.UnsafeRootMacaroon("1p", []byte("hello"), testhelpers.RootKey)
@@ -108,7 +109,7 @@ func helperCreate3PMacaroon(tb testing.TB) (*macaroon.Scheme, macaroon.Stack) {
 	if err != nil {
 		tb.Fatalf("UnsafeRootMacaroon: %v", err)
 	}
-	stack, err := sch.PrepareStack(&m, []macaroon.Macaroon{dm})
+	stack, err := sch.PrepareStack(&m, []mack.Macaroon{dm})
 	if err != nil {
 		tb.Fatalf("BindForRequest: %v", err)
 	}

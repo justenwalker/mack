@@ -11,11 +11,11 @@ import (
 
 func AuthorizeMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler.ServeHTTP(w, setAuthContext(r))
+		handler.ServeHTTP(w, setAuthorizationOnRequest(r))
 	})
 }
 
-func setAuthContext(r *http.Request) *http.Request {
+func setAuthorizationOnRequest(r *http.Request) *http.Request {
 	token, ok := headers.GetBearerToken(r.Header)
 	if !ok {
 		return r
@@ -27,7 +27,7 @@ func setAuthContext(r *http.Request) *http.Request {
 	if time.Until(exp) < 0 {
 		return r
 	}
-	ctx := WithAuthContext(r.Context(), AuthContext{
+	ctx := WithAuthorization(r.Context(), Authorization{
 		Username: user,
 		Time:     time.Now().UTC(),
 	})

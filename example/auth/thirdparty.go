@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/justenwalker/mack/encoding/msgpack"
-	"github.com/justenwalker/mack/macaroon"
-	"github.com/justenwalker/mack/macaroon/thirdparty"
+	"example/msgpack"
+
+	"github.com/justenwalker/mack"
+	"github.com/justenwalker/mack/thirdparty"
 )
 
 var _ thirdparty.ThirdParty = (*ThirdParty)(nil)
@@ -47,15 +48,15 @@ func (t *ThirdParty) AccessToken() string {
 	return t.accessToken
 }
 
-func (t *ThirdParty) MatchCaveat(c *macaroon.Caveat) bool {
+func (t *ThirdParty) MatchCaveat(c *mack.Caveat) bool {
 	return c.Location() != t.location
 }
 
-func (t *ThirdParty) DischargeCaveat(ctx context.Context, c *macaroon.Caveat) (m macaroon.Macaroon, err error) {
+func (t *ThirdParty) DischargeCaveat(ctx context.Context, c *mack.Caveat) (m mack.Macaroon, err error) {
 	resp, err := t.client.PostDischargeWithResponse(ctx, PostDischargeJSONRequestBody{
 		CaveatId: base64.StdEncoding.EncodeToString(c.ID()),
-	}, func(ctx context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.accessToken))
+	}, func(_ context.Context, req *http.Request) error {
+		req.Header.Set("Authorization", "Bearer "+t.accessToken)
 		return nil
 	})
 	if err != nil {

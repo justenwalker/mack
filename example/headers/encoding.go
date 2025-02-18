@@ -4,13 +4,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/justenwalker/mack/encoding/msgpack"
-	"github.com/justenwalker/mack/macaroon"
+	"example/msgpack"
+
+	"github.com/justenwalker/mack"
 )
 
-const MacaroonBearerPrefix = "macaroon.v1."
+const MacaroonBearerPrefix = "mack.v1." //nolint:gosec // not a credential
 
-func EncodeMacaroonStack(stack macaroon.Stack) (string, error) {
+func EncodeMacaroonStack(stack mack.Stack) (string, error) {
 	enc, err := msgpack.Encoding.EncodeStack(stack)
 	if err != nil {
 		return "", err
@@ -18,15 +19,15 @@ func EncodeMacaroonStack(stack macaroon.Stack) (string, error) {
 	return MacaroonBearerPrefix + base64.StdEncoding.EncodeToString(enc), nil
 }
 
-func DecodeMacaroonStack(token string) (macaroon.Stack, error) {
+func DecodeMacaroonStack(token string) (mack.Stack, error) {
 	stackBytes, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
-		return macaroon.Stack{}, fmt.Errorf("decode token failed: %w", err)
+		return mack.Stack{}, fmt.Errorf("decode token failed: %w", err)
 	}
-	var stack macaroon.Stack
+	var stack mack.Stack
 	err = msgpack.Encoding.DecodeStack(stackBytes, &stack)
 	if err != nil {
-		return macaroon.Stack{}, fmt.Errorf("decode token failed: %w", err)
+		return mack.Stack{}, fmt.Errorf("decode token failed: %w", err)
 	}
 	return stack, nil
 }

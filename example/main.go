@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -15,20 +16,18 @@ import (
 	"example/auth"
 	"example/target"
 
-	"github.com/justenwalker/mack/crypt/random"
-	"github.com/justenwalker/mack/macaroon"
-	"github.com/justenwalker/mack/macaroon/thirdparty"
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/sensible"
+	"github.com/justenwalker/mack/thirdparty"
 )
 
 func main() {
-	// for the paranoid: ensures we didn't build this binary with -tags test_random
-	random.MustNotBeTest()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
 	if err := run(ctx); err != nil {
+		cancel()
 		log.Fatal("ERROR:", err)
 	}
+	cancel()
 }
 
 const (
@@ -39,7 +38,35 @@ const (
 	targetServiceLocation = "http://127.0.0.1:8081"
 )
 
+type runFlags struct {
+	authServiceLocation   string
+	authServiceAddr       string
+	targetServiceLocation string
+	targetServiceAddr     string
+}
+
+func (f *runFlags) parse() (bool, error) {
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	fs.StringVar(&f.authServiceAddr, "auth-addr", authAPIAddr, "Address on which the Auth Service should listen")
+	fs.StringVar(&f.targetServiceAddr, "target-addr", targetAPIAddr, "Address on which the Target Service should listen")
+	fs.StringVar(&f.authServiceLocation, "auth-location", authServiceLocation, "Auth Service Location - e.g. http://127.0.0.1:8080")
+	fs.StringVar(&f.targetServiceLocation, "target-location", targetServiceLocation, "Target Service Location - e.g. http://127.0.0.1:8081")
+	err := fs.Parse(os.Args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		flag.Usage()
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func run(ctx context.Context) error {
+	var flags runFlags
+	if ok, err := flags.parse(); !ok {
+		return err
+	}
 	// Just use the sensible scheme
 	scheme := sensible.Scheme()
 
@@ -55,7 +82,7 @@ func run(ctx context.Context) error {
 	log.Println("Starting API Servers")
 	go func() {
 		defer close(doneCh)
-		if err := startServers(srvCtx, scheme); err != nil {
+		if err := startServers(srvCtx, &flags, scheme); err != nil {
 			log.Fatalf("ERROR: failed to start servers: %v", err)
 		}
 	}()
@@ -63,7 +90,7 @@ func run(ctx context.Context) error {
 	// Creates a macaroon third-party for the auth service to discharge auth caveats
 	// This logs into the auth service and acquires the access token.
 	var thirdParties thirdparty.Set
-	authThirdParty, err := auth.NewThirdParty(ctx, authServiceLocation, auth.Credentials{
+	authThirdParty, err := auth.NewThirdParty(ctx, flags.authServiceLocation, auth.Credentials{
 		Username: "foo",
 		Password: "secret",
 	})
@@ -73,7 +100,7 @@ func run(ctx context.Context) error {
 	thirdParties = append(thirdParties, authThirdParty)
 
 	// Create a Target Service API Client - the thing we want to call api methods on
-	targetAPIClient, err := target.NewAPIClient(targetServiceLocation, authThirdParty.AccessToken())
+	targetAPIClient, err := target.NewAPIClient(flags.targetServiceLocation, authThirdParty.AccessToken())
 	if err != nil {
 		return fmt.Errorf("target.NewAPIClient: %w", err)
 	}
@@ -134,7 +161,7 @@ func run(ctx context.Context) error {
 
 	// 3. This API call should fail, since we didn't bind the request
 	log.Println("3. Execute Failing Request - Macaroon Verification Failure due to discharge not bound to target")
-	_, err = targetAPIClient.DoOperation(ctx, macaroon.Stack{m, discharge[0]}, target.Operation{
+	_, err = targetAPIClient.DoOperation(ctx, mack.Stack{m, discharge[0]}, target.Operation{
 		Org:       "myorg",
 		App:       "myapp",
 		Operation: "foo",
@@ -146,14 +173,14 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func startServers(ctx context.Context, scheme *macaroon.Scheme) error {
+func startServers(ctx context.Context, flags *runFlags, scheme *mack.Scheme) error {
 	// Start listening
-	authListener, err := net.Listen("tcp", authAPIAddr)
+	authListener, err := net.Listen("tcp", flags.authServiceAddr)
 	if err != nil {
 		return err
 	}
 	defer closeListener(authListener)
-	targetListener, err := net.Listen("tcp", targetAPIAddr)
+	targetListener, err := net.Listen("tcp", flags.targetServiceAddr)
 	if err != nil {
 		return err
 	}
@@ -163,11 +190,14 @@ func startServers(ctx context.Context, scheme *macaroon.Scheme) error {
 	wg.Add(2)
 
 	// Create auth api server and start it
-	authAPI, err := auth.NewAPI(scheme, authServiceLocation)
+	authAPI, err := auth.NewAPI(scheme, flags.authServiceLocation)
 	if err != nil {
 		return fmt.Errorf("auth.NewAPI: %w", err)
 	}
-	authAPIServer := &http.Server{Handler: authAPI.Handler()}
+	authAPIServer := &http.Server{
+		Handler:     authAPI.Handler(),
+		ReadTimeout: 5 * time.Second,
+	}
 	go func() {
 		defer wg.Done()
 		serveErr := authAPIServer.Serve(authListener)
@@ -181,15 +211,16 @@ func startServers(ctx context.Context, scheme *macaroon.Scheme) error {
 	// Create target api server and start it
 	targetAPI, err := target.NewAPI(ctx, target.APIConfig{
 		Scheme:      scheme,
-		Location:    targetServiceLocation,
+		Location:    flags.targetServiceLocation,
 		SecretKey:   "secret-key",
-		AuthService: authServiceLocation,
+		AuthService: flags.authServiceLocation,
 	})
 	if err != nil {
 		return fmt.Errorf("NewTargetService: %w", err)
 	}
 	targetAPIServer := &http.Server{
-		Handler: targetAPI.Handler(),
+		Handler:     targetAPI.Handler(),
+		ReadTimeout: 5 * time.Second,
 	}
 	go func() {
 		defer wg.Done()

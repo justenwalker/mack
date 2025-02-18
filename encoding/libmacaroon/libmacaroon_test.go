@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
 	"github.com/justenwalker/mack/encoding/libmacaroon"
-	"github.com/justenwalker/mack/macaroon"
 	"github.com/justenwalker/mack/sensible"
 )
 
@@ -72,7 +72,7 @@ func TestSerialization(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			macaroons := make([]macaroon.Macaroon, len(tt.encodings))
+			macaroons := make([]mack.Macaroon, len(tt.encodings))
 			serialized := make([][]byte, len(tt.encodings))
 			for i := range macaroons {
 				var err error
@@ -123,7 +123,7 @@ func TestLibmacaroon(t *testing.T) {
 		name       string
 		authorized bool
 		key        string
-		caveats    []macaroon.PredicateChecker
+		caveats    []mack.PredicateChecker
 		base64data string
 		encoding   encoderDecoder
 	}{
@@ -131,7 +131,7 @@ func TestLibmacaroon(t *testing.T) {
 			name:       "caveat_v1_1",
 			authorized: true,
 			key:        "this is the key",
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 			},
 			encoding:   v1,
@@ -141,7 +141,7 @@ func TestLibmacaroon(t *testing.T) {
 			name:       "caveat_v1_2",
 			authorized: false,
 			key:        "this is the key",
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 0000000000"),
 			},
 			encoding:   v1,
@@ -159,7 +159,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: true,
 			key:        "this is the key",
 			encoding:   v1,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 				Exact("user = alice"),
 			},
@@ -170,7 +170,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: false,
 			key:        "this is the key",
 			encoding:   v1,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 			},
 			base64data: "TURBeU1XeHZZMkYwYVc5dUlHaDBkSEE2THk5bGVHRnRjR3hsTG05eVp5OEtNREF4Tldsa1pXNTBhV1pwWlhJZ2EyVjVhV1FLTURBeFpHTnBaQ0JoWTJOdmRXNTBJRDBnTXpjek5Ua3lPRFUxT1Fvd01ERTFZMmxrSUhWelpYSWdQU0JoYkdsalpRb3dNREptYzJsbmJtRjBkWEpsSUV2cFo4MGVvTWF5YTY5cVNwVHVtd1d4V0liYUM2aGVqRUtwUEkwT0VsNzhDZw==",
@@ -180,7 +180,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: false,
 			key:        "this is the key",
 			encoding:   v1,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("user = alice"),
 			},
 			base64data: "TURBeU1XeHZZMkYwYVc5dUlHaDBkSEE2THk5bGVHRnRjR3hsTG05eVp5OEtNREF4Tldsa1pXNTBhV1pwWlhJZ2EyVjVhV1FLTURBeFpHTnBaQ0JoWTJOdmRXNTBJRDBnTXpjek5Ua3lPRFUxT1Fvd01ERTFZMmxrSUhWelpYSWdQU0JoYkdsalpRb3dNREptYzJsbmJtRjBkWEpsSUV2cFo4MGVvTWF5YTY5cVNwVHVtd1d4V0liYUM2aGVqRUtwUEkwT0VsNzhDZw==",
@@ -189,7 +189,7 @@ func TestLibmacaroon(t *testing.T) {
 			name:       "caveat_v2_1",
 			authorized: true,
 			key:        "this is the key",
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 			},
 			encoding:   v2,
@@ -199,7 +199,7 @@ func TestLibmacaroon(t *testing.T) {
 			name:       "caveat_v2_2",
 			authorized: false,
 			key:        "this is the key",
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 0000000000"),
 			},
 			encoding:   v2,
@@ -217,7 +217,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: true,
 			key:        "this is the key",
 			encoding:   v2,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 				Exact("user = alice"),
 			},
@@ -228,7 +228,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: false,
 			key:        "this is the key",
 			encoding:   v2,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("account = 3735928559"),
 			},
 			base64data: "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A",
@@ -238,7 +238,7 @@ func TestLibmacaroon(t *testing.T) {
 			authorized: false,
 			key:        "this is the key",
 			encoding:   v2,
-			caveats: []macaroon.PredicateChecker{
+			caveats: []mack.PredicateChecker{
 				Exact("user = alice"),
 			},
 			base64data: "AgETaHR0cDovL2V4YW1wbGUub3JnLwIFa2V5aWQAAhRhY2NvdW50ID0gMzczNTkyODU1OQACDHVzZXIgPSBhbGljZQAABiBL6WfNHqDGsmuvakqU7psFsViG2guoXoxCqTyNDhJe_A",
@@ -281,16 +281,16 @@ func TestLibmacaroon(t *testing.T) {
 			keygen.Reset()
 			keygen.Write([]byte(tt.key))
 			rootKey := keygen.Sum(nil)
-			var m macaroon.Macaroon
+			var m mack.Macaroon
 			if err = tt.encoding.DecodeMacaroon(data, &m); err != nil {
 				t.Fatalf("macaroon decoding failed: %v", err)
 			}
-			ctx := macaroon.WithVerifyContext(context.Background())
+			ctx := mack.WithVerifyContext(context.Background())
 			stack, _ := sch.PrepareStack(&m, nil)
 			vc, err := sch.Verify(ctx, rootKey, stack)
 			if err != nil {
 				if tt.authorized {
-					traces := macaroon.GetTraces(ctx)
+					traces := mack.GetTraces(ctx)
 					t.Fatalf("expected authorization to succeed, but failed: %v\n%s", err, traces.String())
 				}
 				return // unauthorized
@@ -314,7 +314,7 @@ func (e Exact) CheckPredicate(_ context.Context, predicate []byte) (bool, error)
 	return bytes.Equal([]byte(e), predicate), nil
 }
 
-type PredicateChecker []macaroon.PredicateChecker
+type PredicateChecker []mack.PredicateChecker
 
 func (e PredicateChecker) CheckPredicate(ctx context.Context, predicate []byte) (bool, error) {
 	for _, pc := range e {
@@ -325,4 +325,4 @@ func (e PredicateChecker) CheckPredicate(ctx context.Context, predicate []byte) 
 	return false, nil
 }
 
-var _ macaroon.PredicateChecker = Exact("")
+var _ mack.PredicateChecker = Exact("")

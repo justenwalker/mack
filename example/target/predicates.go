@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/justenwalker/mack/macaroon/thirdparty"
+	"github.com/justenwalker/mack/thirdparty"
 )
 
 type RequestContext struct {
@@ -21,7 +21,7 @@ type PredicateChecker struct {
 	RequestContext RequestContext
 }
 
-func (p PredicateChecker) CheckPredicate(ctx context.Context, predicate []byte) (bool, error) {
+func (p PredicateChecker) CheckPredicate(_ context.Context, predicate []byte) (bool, error) {
 	c, err := caveatFromBytes(predicate)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode caveat '%s': %w", string(predicate), err)
@@ -58,7 +58,10 @@ type Caveat struct {
 }
 
 func caveatBytes(op string, args ...string) []byte {
-	bs, _ := json.Marshal(Caveat{Op: op, Args: args})
+	bs, err := json.Marshal(Caveat{Op: op, Args: args})
+	if err != nil {
+		panic(err)
+	}
 	return bs
 }
 

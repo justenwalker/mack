@@ -5,22 +5,22 @@ import (
 	"time"
 )
 
-type AuthContext struct {
+type Authorization struct {
 	Username string
 	Time     time.Time
 }
 
-type authContextKey struct{}
+type authnContextKey struct{}
 
-func WithAuthContext(ctx context.Context, rc AuthContext) context.Context {
-	return context.WithValue(ctx, authContextKey{}, rc)
+func WithAuthorization(ctx context.Context, rc Authorization) context.Context {
+	return context.WithValue(ctx, authnContextKey{}, rc)
 }
 
-func AuthFromContext(ctx context.Context) (AuthContext, bool) {
-	v := ctx.Value(authContextKey{})
+func AuthorizationFromContext(ctx context.Context) (Authorization, bool) {
+	v := ctx.Value(authnContextKey{})
 	if v == nil {
-		return AuthContext{}, false
+		return Authorization{}, false
 	}
-	rc, ok := v.(AuthContext)
+	rc, ok := v.(Authorization)
 	return rc, ok
 }

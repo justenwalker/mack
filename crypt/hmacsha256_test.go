@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/justenwalker/mack/macaroon"
+	"github.com/justenwalker/mack"
 )
 
 func TestHmacSha256(t *testing.T) {
@@ -43,7 +43,7 @@ func TestHmacSha256(t *testing.T) {
 }
 
 func TestBindForRequestHmacSHA256(t *testing.T) {
-	tm := macaroon.NewFromRaw(macaroon.Raw{
+	tm := mack.NewFromRaw(mack.Raw{
 		ID:        []byte(`id`),
 		Signature: []byte(`sig`),
 	})
@@ -116,7 +116,7 @@ func TestBindForRequestSHA256(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tm := macaroon.NewFromRaw(macaroon.Raw{
+			tm := mack.NewFromRaw(mack.Raw{
 				ID:        []byte(`id`),
 				Signature: tt.sig,
 			})
