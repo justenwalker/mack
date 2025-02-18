@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unsafe"
 
 	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/encoding"
@@ -58,7 +59,7 @@ func (v V1) EncodeMacaroon(m *mack.Macaroon) ([]byte, error) {
 	if v.OutputEncoder != nil {
 		writer = v.OutputEncoder.EncodeOutput(writer)
 	}
-	enc := NewV1Encoder(writer)
+	enc := V1Encoder{writer: &byteWriter{Writer: writer}}
 	if err := enc.EncodeMacaroon(m); err != nil {
 		return nil, err
 	}
@@ -107,19 +108,20 @@ func NewV1Encoder(w io.Writer) *V1Encoder {
 }
 
 func (enc *V1Encoder) EncodeMacaroon(m *mack.Macaroon) error {
-	if err := v1WritePacket(enc.writer, v1FieldLocation, []byte(m.Location())); err != nil {
+	bw := byteWriter{Writer: enc.writer}
+	if err := v1WriteLocation(&bw, m.Location()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write field '%s': %w", v1FieldLocation, err)
 	}
-	if err := v1WritePacket(enc.writer, v1FieldIdentifier, m.ID()); err != nil {
+	if err := v1WritePacket(&bw, v1FieldIdentifier, m.ID()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write field '%s': %w", v1FieldIdentifier, err)
 	}
 	cs := m.Caveats()
 	for i := range cs {
-		if err := v1WriteCaveat(enc.writer, &cs[i]); err != nil {
+		if err := v1WriteCaveat(&bw, &cs[i]); err != nil {
 			return err
 		}
 	}
-	if err := v1WritePacket(enc.writer, v1FieldSignature, m.Signature()); err != nil {
+	if err := v1WritePacket(&bw, v1FieldSignature, m.Signature()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write field '%s': %w", v1FieldSignature, err)
 	}
 	return nil
@@ -252,7 +254,14 @@ func v1ReadPacket(r io.Reader) (v1FieldType, []byte, error) {
 	return v1FieldType(key), value, nil
 }
 
-func v1WritePacket(w io.Writer, ft v1FieldType, data []byte) error {
+func v1WriteLocation(w *byteWriter, loc string) error {
+	n := len(loc)
+	bp := unsafe.StringData(loc)
+	bs := unsafe.Slice(bp, n)
+	return v1WritePacket(w, v1FieldLocation, bs)
+}
+
+func v1WritePacket(w *byteWriter, ft v1FieldType, data []byte) error {
 	var lengthBytes [2]byte
 	var lengthHex [4]byte
 	binary.BigEndian.PutUint16(lengthBytes[:], safeUint16(len(data)+6+len(ft)))
@@ -260,32 +269,32 @@ func v1WritePacket(w io.Writer, ft v1FieldType, data []byte) error {
 	if _, err := w.Write(lengthHex[:]); err != nil { // Length
 		return err
 	}
-	if _, err := w.Write([]byte(ft)); err != nil { // Field Type
+	if _, err := w.WriteString(string(ft)); err != nil { // Field Type
 		return err
 	}
-	if _, err := w.Write([]byte{0x20}); err != nil { // SPC
+	if err := w.WriteByte(0x20); err != nil { // SPC
 		return err
 	}
 	if _, err := w.Write(data); err != nil { // Data
 		return err
 	}
-	if _, err := w.Write([]byte{0x0A}); err != nil { // LF
+	if err := w.WriteByte(0x0A); err != nil { // LF
 		return err
 	}
 	return nil
 }
 
-func v1WriteCaveat(w io.Writer, c *mack.Caveat) error {
-	if err := v1WritePacket(w, v1FieldCid, c.ID()); err != nil {
+func v1WriteCaveat(bw *byteWriter, c *mack.Caveat) error {
+	if err := v1WritePacket(bw, v1FieldCid, c.ID()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write caveat field '%s': %w", v1FieldCid, err)
 	}
 	if len(c.VID()) == 0 {
 		return nil
 	}
-	if err := v1WritePacket(w, v1FieldVerification, c.VID()); err != nil {
+	if err := v1WritePacket(bw, v1FieldVerification, c.VID()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write caveat field '%s': %w", v1FieldVerification, err)
 	}
-	if err := v1WritePacket(w, v1FieldLocation, []byte(c.Location())); err != nil {
+	if err := v1WriteLocation(bw, c.Location()); err != nil {
 		return fmt.Errorf("v1.Encoder: failed to write caveat field '%s': %w", v1FieldLocation, err)
 	}
 	return nil

@@ -11,11 +11,12 @@ import (
 	"net/http"
 	"time"
 
+	"filippo.io/age"
+	"github.com/google/uuid"
+
 	"example/agecrypt"
 	"example/auth"
 	"example/msgpack"
-	"filippo.io/age"
-	"github.com/google/uuid"
 
 	"github.com/justenwalker/mack"
 	"github.com/justenwalker/mack/thirdparty"

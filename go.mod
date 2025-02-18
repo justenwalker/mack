@@ -1,6 +1,6 @@
 module github.com/justenwalker/mack
 
-go 1.18
+go 1.20
 
 toolchain go1.24.0
 
