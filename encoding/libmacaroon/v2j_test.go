@@ -2,9 +2,10 @@ package libmacaroon
 
 import (
 	"encoding/base64"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/justenwalker/mack"
 )
@@ -54,6 +55,9 @@ func TestV2JEncoding_allocs(t *testing.T) {
 		writeHeapProfile(t)
 		t.Fatalf("allocs = %d > %d", int(allocs), maxAllocs)
 	}
+	if allocs < maxAllocs {
+		t.Logf("allocs = %d < %d; consider lowering the maxAllocs", int(allocs), maxAllocs)
+	}
 }
 
 func TestV2JDecoding_allocs(t *testing.T) {
@@ -68,9 +72,12 @@ func TestV2JDecoding_allocs(t *testing.T) {
 			t.Fatalf("Encoding.DecodeMacaroon: %v", err)
 		}
 	})
-	const maxAllocs = 28
+	const maxAllocs = 23
 	if allocs > maxAllocs {
 		writeHeapProfile(t)
 		t.Fatalf("allocs = %d > %d", int(allocs), maxAllocs)
+	}
+	if allocs < maxAllocs {
+		t.Logf("allocs = %d < %d; consider lowering the maxAllocs", int(allocs), maxAllocs)
 	}
 }

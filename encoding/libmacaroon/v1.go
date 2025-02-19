@@ -27,23 +27,21 @@ func (v V1) String() string {
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v1 binary format.
 func (v V1) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
-	br := bytes.NewReader(bs)
-	var r io.Reader = br
-	if v.InputDecoder != nil {
-		r = v.InputDecoder.DecodeInput(br)
+	buf, err := decodeBuffer(v.InputDecoder, bs)
+	if err != nil {
+		return err
 	}
-	dec := NewV1Decoder(r)
+	dec := NewV1Decoder(buf)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a stack of macaroons from libmacaroon v1 binary format.
 func (v V1) DecodeStack(bs []byte, stack *mack.Stack) error {
-	br := bytes.NewReader(bs)
-	var r io.Reader = br
-	if v.InputDecoder != nil {
-		r = v.InputDecoder.DecodeInput(br)
+	buf, err := decodeBuffer(v.InputDecoder, bs)
+	if err != nil {
+		return err
 	}
-	dec := NewV1Decoder(r)
+	dec := NewV1Decoder(buf)
 	return dec.DecodeStack(stack)
 }
 
@@ -140,8 +138,8 @@ type V1Decoder struct {
 	reader *byteReader
 }
 
-func NewV1Decoder(r io.Reader) *V1Decoder {
-	return &V1Decoder{reader: &byteReader{Reader: r}}
+func NewV1Decoder(bs []byte) *V1Decoder {
+	return &V1Decoder{reader: &byteReader{buf: bs}}
 }
 
 func (dec *V1Decoder) DecodeMacaroon(m *mack.Macaroon) error {

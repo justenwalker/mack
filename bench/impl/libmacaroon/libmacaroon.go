@@ -1,9 +1,11 @@
 package libmacaroon
 
 import (
-	"bench/impl"
 	"fmt"
+
 	"gopkg.in/macaroon.v2"
+
+	"bench/impl"
 )
 
 var _ impl.Interface = (*Implementation)(nil)

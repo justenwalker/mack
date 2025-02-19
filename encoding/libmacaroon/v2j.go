@@ -24,15 +24,13 @@ func (V2J) String() string {
 
 // DecodeMacaroon decodes a macaroon from v2 json format.
 func (V2J) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
-	br := bytes.NewReader(bs)
-	dec := NewV2JDecoder(br)
+	dec := NewV2JDecoder(bs)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a macaroon stack from v2 json format.
 func (V2J) DecodeStack(bs []byte, stack *mack.Stack) error {
-	br := bytes.NewReader(bs)
-	dec := NewV2JDecoder(br)
+	dec := NewV2JDecoder(bs)
 	return dec.DecodeStack(stack)
 }
 
@@ -81,16 +79,16 @@ func (enc *V2JEncoder) EncodeStack(stack mack.Stack) error {
 }
 
 type V2JDecoder struct {
-	decoder *json.Decoder
+	buf []byte
 }
 
-func NewV2JDecoder(r io.Reader) *V2JDecoder {
-	return &V2JDecoder{decoder: json.NewDecoder(r)}
+func NewV2JDecoder(bs []byte) *V2JDecoder {
+	return &V2JDecoder{buf: bs}
 }
 
 func (dec *V2JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 	var js v2jMacaroonJSON
-	err := dec.decoder.Decode(&js)
+	err := json.Unmarshal(dec.buf, &js)
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeMacaroon: failed to unmarshal json: %w", err)
 	}
@@ -102,7 +100,7 @@ func (dec *V2JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 
 func (dec *V2JDecoder) DecodeStack(stack *mack.Stack) error {
 	var jsonstack []v2jMacaroonJSON
-	err := dec.decoder.Decode(&jsonstack)
+	err := json.Unmarshal(dec.buf, &jsonstack)
 	if err != nil {
 		return fmt.Errorf("v2j.DecodeStack: failed to unmarshal json: %w", err)
 	}
@@ -219,18 +217,6 @@ func v2jSetData(data []byte, sp *string, b64p *string) {
 		return
 	}
 	*b64p = base64.RawURLEncoding.EncodeToString(data)
-}
-
-func v2jJSONData(data []byte) (str *string, b64 *string) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-	if utf8.Valid(data) {
-		s := string(data)
-		return &s, nil
-	}
-	b := base64.RawURLEncoding.EncodeToString(data)
-	return nil, &b
 }
 
 func v2jJSONFieldData(str string, b64 string) ([]byte, error) {

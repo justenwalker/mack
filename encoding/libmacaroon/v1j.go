@@ -24,15 +24,13 @@ func (V1J) String() string {
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v1 json format.
 func (V1J) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
-	br := bytes.NewReader(bs)
-	dec := NewV1JDecoder(br)
+	dec := NewV1JDecoder(bs)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a macaroon stack from v1 json format.
 func (V1J) DecodeStack(bs []byte, stack *mack.Stack) error {
-	br := bytes.NewReader(bs)
-	dec := NewV1JDecoder(br)
+	dec := NewV1JDecoder(bs)
 	return dec.DecodeStack(stack)
 }
 
@@ -85,16 +83,16 @@ func (enc *V1JEncoder) EncodeStack(stack mack.Stack) error {
 }
 
 type V1JDecoder struct {
-	decoder *json.Decoder
+	buf []byte
 }
 
-func NewV1JDecoder(r io.Reader) *V1JDecoder {
-	return &V1JDecoder{decoder: json.NewDecoder(r)}
+func NewV1JDecoder(bs []byte) *V1JDecoder {
+	return &V1JDecoder{buf: bs}
 }
 
 func (dec *V1JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 	var js v1jMacaroonJSON
-	if err := dec.decoder.Decode(&js); err != nil {
+	if err := json.Unmarshal(dec.buf, &js); err != nil {
 		return fmt.Errorf("v1j.DecodeMacaroon: failed to unmarshal json: %w", err)
 	}
 	if err := v1jMacaroonFromJSON(&js, m); err != nil {
@@ -104,14 +102,13 @@ func (dec *V1JDecoder) DecodeMacaroon(m *mack.Macaroon) error {
 }
 
 func (dec *V1JDecoder) DecodeStack(stack *mack.Stack) error {
-	var jsonstack []v1jMacaroonJSON
-	err := dec.decoder.Decode(&jsonstack)
-	if err != nil {
+	var js []v1jMacaroonJSON
+	if err := json.Unmarshal(dec.buf, &js); err != nil {
 		return fmt.Errorf("v1j.DecodeStack: failed to unmarshal json: %w", err)
 	}
-	s := make(mack.Stack, len(jsonstack))
-	for i := range jsonstack {
-		return v1jMacaroonFromJSON(&jsonstack[i], &s[i])
+	s := make(mack.Stack, len(js))
+	for i := range js {
+		return v1jMacaroonFromJSON(&js[i], &s[i])
 	}
 	*stack = s
 	return nil

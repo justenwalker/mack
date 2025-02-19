@@ -1,9 +1,10 @@
 package testvector
 
 import (
-	"bench/impl"
 	"crypto/rand"
 	"encoding/base64"
+
+	"bench/impl"
 )
 
 func RandomMacaroonSpec() impl.NewMacaroonSpec {

@@ -24,23 +24,21 @@ func (v V2) String() string {
 
 // DecodeMacaroon decodes a macaroon from libmacaroon v2 binary format.
 func (v V2) DecodeMacaroon(bs []byte, m *mack.Macaroon) error {
-	br := bytes.NewReader(bs)
-	var r io.Reader = br
-	if v.InputDecoder != nil {
-		r = v.InputDecoder.DecodeInput(br)
+	buf, err := decodeBuffer(v.InputDecoder, bs)
+	if err != nil {
+		return err
 	}
-	dec := NewV2Decoder(r)
+	dec := NewV2Decoder(buf)
 	return dec.DecodeMacaroon(m)
 }
 
 // DecodeStack decodes a stack of macaroons from libmacaroon v2 binary format.
 func (v V2) DecodeStack(bs []byte, stack *mack.Stack) error {
-	br := bytes.NewReader(bs)
-	var r io.Reader = br
-	if v.InputDecoder != nil {
-		r = v.InputDecoder.DecodeInput(br)
+	buf, err := decodeBuffer(v.InputDecoder, bs)
+	if err != nil {
+		return err
 	}
-	dec := NewV2Decoder(r)
+	dec := NewV2Decoder(buf)
 	return dec.DecodeStack(stack)
 }
 
@@ -214,8 +212,8 @@ type V2Decoder struct {
 	reader *byteReader
 }
 
-func NewV2Decoder(r io.Reader) *V2Decoder {
-	return &V2Decoder{reader: &byteReader{Reader: r}}
+func NewV2Decoder(bs []byte) *V2Decoder {
+	return &V2Decoder{reader: &byteReader{buf: bs}}
 }
 
 func (dec *V2Decoder) DecodeMacaroon(m *mack.Macaroon) error {
@@ -381,8 +379,7 @@ func (dec *V2Decoder) readField() (v2FieldType, []byte, error) {
 	if err != nil {
 		return 0, nil, fmt.Errorf("fail to read field len: %w", err)
 	}
-	value := make([]byte, fieldLen)
-	_, err = io.ReadFull(dec.reader, value)
+	value, err := dec.reader.ReadField(int(fieldLen))
 	if err != nil {
 		return 0, nil, fmt.Errorf("fail to read field data (size=%d): %w", fieldLen, err)
 	}

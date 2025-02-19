@@ -83,9 +83,12 @@ func TestV1Encoding_allocs(t *testing.T) {
 		}
 		_, _ = io.Discard.Write(enc)
 	})
-	const maxAllocs = 10
+	const maxAllocs = 9
 	if allocs > maxAllocs {
 		writeHeapProfile(t)
 		t.Fatalf("allocs = %d > %d", int(allocs), maxAllocs)
+	}
+	if allocs < maxAllocs {
+		t.Logf("allocs = %d < %d; consider lowering the maxAllocs", int(allocs), maxAllocs)
 	}
 }

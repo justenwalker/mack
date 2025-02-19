@@ -1,6 +1,7 @@
 package libmacaroon
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -112,23 +113,47 @@ func (w *byteWriter) WriteString(str string) (int, error) {
 }
 
 type byteReader struct {
-	totalRead int64
-	buf       [8]byte
-	io.Reader
+	buf    []byte
+	offset int
+}
+
+func (br *byteReader) ReadField(n int) ([]byte, error) {
+	if br.offset+n > len(br.buf) {
+		return nil, io.EOF
+	}
+	b := br.buf[br.offset : br.offset+n]
+	br.offset += n
+	return b, nil
 }
 
 func (br *byteReader) ReadByte() (byte, error) {
-	_, err := br.Read(br.buf[:1])
-	if err != nil {
-		return 0, err
+	if br.offset >= len(br.buf) {
+		return 0, io.EOF
 	}
-	return br.buf[0], nil
+	b := br.buf[br.offset]
+	br.offset++
+	return b, nil
 }
 
 func (br *byteReader) Read(p []byte) (int, error) {
-	n, err := br.Reader.Read(p)
-	br.totalRead += int64(n)
-	return n, err
+	if len(p) >= len(br.buf)-br.offset {
+		n := copy(p, br.buf[br.offset:])
+		br.offset += n
+		return n, io.EOF
+	}
+	n := copy(p, br.buf[br.offset:])
+	br.offset += n
+	return n, nil
+}
+
+func decodeBuffer(dec InputDecoder, buf []byte) ([]byte, error) {
+	if dec == nil {
+		return buf, nil
+	}
+	decoded := make([]byte, dec.DecodedLength(len(buf)))
+	r := dec.DecodeInput(bytes.NewReader(buf))
+	_, err := io.ReadFull(r, decoded)
+	return decoded, err
 }
 
 // Base64DecodeLoose tries to detect the variant and picks the appropriate base64 encoding to decode the string.

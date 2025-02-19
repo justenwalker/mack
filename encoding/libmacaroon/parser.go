@@ -12,8 +12,7 @@ var errNoData = errors.New("libmacaroon: no macaroon data")
 // it detects the encoding of format of the macaroon by inspecting the bytes.
 // It expects v1 binary format to be base-64 encoded, as it is the canonical representation.
 // All other formats should be in their canonical json or binary formats.
-type Parser struct {
-}
+type Parser struct{}
 
 // DecodeMacaroon decodes a macaroon from the given binary or text data.
 // The parser attempts to detect the format of the macaroon.
