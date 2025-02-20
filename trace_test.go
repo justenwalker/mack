@@ -60,7 +60,7 @@ func TestTraces_fail(t *testing.T) {
 	if len(traces[1].Ops) != 2 {
 		t.Fatalf("expected trace[1] to have 2 operations, got %d", len(traces[1].Ops))
 	}
-	_ = g.Update(t, "TestTraces_fail", []byte(traces.String()))
+	g.Assert(t, "TestTraces_fail", []byte(traces.String()))
 }
 
 func TestTraces_success(t *testing.T) {
@@ -109,5 +109,5 @@ func TestTraces_success(t *testing.T) {
 	if len(traces[1].Ops) != 2 {
 		t.Fatalf("expected trace[1] to have 2 operations, got %d", len(traces[1].Ops))
 	}
-	_ = g.Update(t, "TestTraces_success", []byte(traces.String()))
+	g.Assert(t, "TestTraces_success", []byte(traces.String()))
 }
