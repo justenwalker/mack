@@ -21,7 +21,7 @@
 // There is a [sensible package] that can be used for creating a [mack.Scheme] with sensible defaults:
 //
 //   - [HMACScheme]: HMAC-SHA256
-//   - [EncryptionScheme]: XSalsa20
+//   - [EncryptionScheme]: AES-256-GCM with Random  96-bit Nonce
 //   - [BindForRequestScheme] : HMAC-SHA256 where the key is the authorizing macaroon signature
 //
 // # Create a Macaroon
